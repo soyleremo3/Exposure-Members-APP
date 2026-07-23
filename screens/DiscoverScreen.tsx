@@ -14,6 +14,7 @@
 //   • the Subscribe URL isn't in the API — it's derived from the newest post.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Linking,
@@ -29,26 +30,50 @@ import type { ImageStyle, StyleProp } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { ApiError, getEvents, getLinks, getNewsletter, getYoutube, readableError } from '../lib/api';
+import {
+  ApiError,
+  getEvents,
+  getLinks,
+  getNewsletter,
+  getProfile,
+  getYoutube,
+  isReadOnlyError,
+  readableError,
+  READ_ONLY_NOTICE,
+  updateProfile,
+} from '../lib/api';
 import { toImageList } from '../lib/format';
 import { resizedImage } from '../lib/images';
 import { BRAND_BLUE } from '../lib/theme';
 import type { EventRecord, LinkGroup, NewsletterPost, SharedLink, YoutubeVideo } from '../types';
-import { Empty, ErrorNotice, Loading } from '../components/Feedback';
+import { Empty, ErrorNotice, InfoNotice, Loading } from '../components/Feedback';
 
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/channel/UC3HbxGtKcJOEh3y46ze3Buw';
 
-type Section = 'events' | 'links' | 'newsletter' | 'youtube';
+type Section = 'events' | 'links' | 'newsletter' | 'youtube' | 'referral';
 
 const SECTIONS: { key: Section; label: string }[] = [
   { key: 'events', label: 'Events' },
   { key: 'links', label: 'Links' },
   { key: 'newsletter', label: 'Overexposed' },
   { key: 'youtube', label: 'YouTube' },
+  { key: 'referral', label: 'Refer a Friend' },
 ];
 
 export default function DiscoverScreen() {
   const [section, setSection] = useState<Section>('events');
+  // Drives the notification dot on the "Refer a Friend" pill. null until we've
+  // read the profile once; then true (both referrals complete → green) or
+  // false (something missing → red). ReferralSection keeps it live as you type.
+  const [referralsDone, setReferralsDone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getProfile()
+      .then((p) => setReferralsDone(referralsComplete(parseReferrals(p.member.website))))
+      .catch(() => {
+        // Leave the dot hidden if we can't tell — better than a wrong color.
+      });
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
@@ -60,10 +85,11 @@ export default function DiscoverScreen() {
       >
         {SECTIONS.map((s) => {
           const active = section === s.key;
+          const showDot = s.key === 'referral' && referralsDone !== null;
           return (
             <TouchableOpacity
               key={s.key}
-              className={`self-start rounded-full px-4 py-2 ${
+              className={`self-start flex-row items-center gap-1.5 rounded-full px-4 py-2 ${
                 active ? 'bg-brand-blue' : 'bg-brand-blue/10'
               }`}
               activeOpacity={0.8}
@@ -76,6 +102,13 @@ export default function DiscoverScreen() {
               >
                 {s.label}
               </Text>
+              {showDot ? (
+                <View
+                  className={`h-2 w-2 rounded-full ${
+                    referralsDone ? 'bg-emerald-500' : 'bg-red-500'
+                  }`}
+                />
+              ) : null}
             </TouchableOpacity>
           );
         })}
@@ -86,6 +119,7 @@ export default function DiscoverScreen() {
         {section === 'links' ? <LinksSection /> : null}
         {section === 'newsletter' ? <NewsletterSection /> : null}
         {section === 'youtube' ? <YoutubeSection /> : null}
+        {section === 'referral' ? <ReferralSection onDoneChange={setReferralsDone} /> : null}
       </View>
     </SafeAreaView>
   );
@@ -752,6 +786,200 @@ function ytDate(raw?: string | null): string {
   const d = new Date(raw);
   if (isNaN(d.getTime())) return raw;
   return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// -------------------------------------------------------------- refer a friend
+
+// There is no referral endpoint — the website stores two referrals as a JSON
+// string inside the `website` profile column. Read with parseReferrals, write
+// with PATCH /profile { website }. See API.md → "Refer a Friend".
+type Referral = { name: string; email: string; linkedin: string; notes: string };
+
+const BLANK_REFERRAL: Referral = { name: '', email: '', linkedin: '', notes: '' };
+
+// Always returns exactly two slots, whatever the stored blob looks like.
+function parseReferrals(raw: string | null | undefined): [Referral, Referral] {
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      if (Array.isArray(saved)) {
+        return [
+          { ...BLANK_REFERRAL, ...saved[0] },
+          { ...BLANK_REFERRAL, ...saved[1] },
+        ];
+      }
+    } catch {
+      // not JSON (an actual old-style website URL, say) — start empty
+    }
+  }
+  return [{ ...BLANK_REFERRAL }, { ...BLANK_REFERRAL }];
+}
+
+// The website calls two referrals "done" when both have name + phone + linkedin.
+// (The second field is labelled "Phone number" but keyed `email` — quirk.)
+function referralsComplete(referrals: Referral[]): boolean {
+  return referrals.filter((r) => r.name.trim() && r.email.trim() && r.linkedin.trim()).length >= 2;
+}
+
+function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => void }) {
+  const [referrals, setReferrals] = useState<[Referral, Referral]>([
+    { ...BLANK_REFERRAL },
+    { ...BLANK_REFERRAL },
+  ]);
+  const [readOnly, setReadOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { member } = await getProfile();
+      setReferrals(parseReferrals(member.website));
+      setReadOnly(member.member_category === 'test');
+      setError('');
+    } catch (e) {
+      setError(readableError(e));
+    }
+  }, []);
+
+  useEffect(() => {
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  // Keep the pill's dot in sync as the member types, like the website.
+  useEffect(() => {
+    onDoneChange(referralsComplete(referrals));
+  }, [referrals, onDoneChange]);
+
+  function setField(index: 0 | 1, key: keyof Referral, value: string) {
+    setSaved(false);
+    setReferrals((prev) => {
+      const next: [Referral, Referral] = [{ ...prev[0] }, { ...prev[1] }];
+      next[index][key] = value;
+      return next;
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    setError('');
+    try {
+      // Only rows with a name are stored — matches the website.
+      await updateProfile({ website: JSON.stringify(referrals.filter((r) => r.name.trim())) });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      // Read-only test accounts can't write; the banner already explains, so
+      // don't flash a red error — just don't claim it saved.
+      if (!isReadOnlyError(e)) setError(readableError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loading />;
+
+  return (
+    <ScrollView
+      contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <SectionHeader title="Refer a Friend" subtitle="Who else belongs in Exposure?" />
+
+      {readOnly ? <InfoNotice message={READ_ONLY_NOTICE} /> : null}
+      {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+
+      <Text className="mb-5 text-sm leading-6 text-zinc-600">
+        Suggest 2 people you think would be a great addition to Exposure. We&apos;ll reach out to
+        them directly.
+      </Text>
+
+      {([0, 1] as const).map((i) => (
+        <View key={i} className="mb-4 rounded-2xl border border-black/5 bg-white p-5">
+          <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Friend {i + 1}
+          </Text>
+          <ReferralInput
+            value={referrals[i].name}
+            onChangeText={(t) => setField(i, 'name', t)}
+            placeholder="Full name"
+          />
+          <ReferralInput
+            value={referrals[i].email}
+            onChangeText={(t) => setField(i, 'email', t)}
+            placeholder="Phone number"
+            keyboardType="phone-pad"
+          />
+          <ReferralInput
+            value={referrals[i].linkedin}
+            onChangeText={(t) => setField(i, 'linkedin', t)}
+            placeholder="LinkedIn"
+            autoCapitalize="none"
+          />
+          <ReferralInput
+            value={referrals[i].notes}
+            onChangeText={(t) => setField(i, 'notes', t)}
+            placeholder="Additional notes (optional)"
+            multiline
+          />
+        </View>
+      ))}
+
+      <TouchableOpacity
+        className={`mt-2 flex-row items-center justify-center gap-2 rounded-xl bg-brand-blue py-3.5 ${
+          saving ? 'opacity-50' : ''
+        }`}
+        activeOpacity={0.85}
+        disabled={saving}
+        onPress={save}
+      >
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : saved ? (
+          <>
+            <Ionicons name="checkmark-circle" size={16} color="#fff" />
+            <Text className="text-sm font-semibold text-white">Saved</Text>
+          </>
+        ) : (
+          <Text className="text-sm font-semibold text-white">Save referrals</Text>
+        )}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+function ReferralInput({
+  value,
+  onChangeText,
+  placeholder,
+  multiline,
+  keyboardType,
+  autoCapitalize,
+}: {
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  multiline?: boolean;
+  keyboardType?: 'default' | 'phone-pad';
+  autoCapitalize?: 'none' | 'sentences';
+}) {
+  return (
+    <TextInput
+      className={`mb-3 rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 ${
+        multiline ? 'h-20' : ''
+      }`}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      placeholderTextColor="#a1a1aa"
+      multiline={multiline}
+      textAlignVertical={multiline ? 'top' : 'center'}
+      keyboardType={keyboardType ?? 'default'}
+      autoCapitalize={autoCapitalize ?? 'sentences'}
+      autoCorrect={false}
+    />
+  );
 }
 
 function VideoCard({ video, vertical }: { video: YoutubeVideo; vertical?: boolean }) {

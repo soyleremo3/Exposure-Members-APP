@@ -143,6 +143,15 @@ API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-boa
 
 Bunlar URL değil, düz metin. Eski `MemberDetailScreen` `instagram`/`twitter`'ı sosyal link sanıp `Linking.openURL` ile açmaya çalışıyordu — **gerçek bug, düzeltildi**. Ayrıntı API.md → Profile başındaki tablo. Sadece `linkedin`, `github`, `occupation_link` gerçek URL.
 
+### 4.12 Event görselleri: Supabase render + galeri — **eklendi (2026-07-23)**
+
+Event fotoları Supabase Storage `events` bucket'ında public URL (admin upload, max 10 MB). Web `EventImageGrid` sadece ilk fotoyu + sağ altta sayı rozetini gösteriyor, tıklayınca lightbox. Bizde:
+- `lib/images.ts` → `resizedImage()`: public URL'i render endpoint'ine çevirip (`object/public` → `render/image/public`) `width/quality/resize` ekliyor. 10 MB orijinal yerine küçük WEBP.
+- Image-transform ücretli özellik; kapalıysa render URL 400 döner → `expo-image` `onError` ile orijinale düşülüyor (`RemoteImage` bileşeni). Yani her durumda çalışır.
+- Kart 800px, tam ekran galeri 1080px ister. `cachePolicy="memory-disk"` ile tekrar indirme yok.
+- `lib/format.ts` → `toImageList()`: `images` dizi/JSON-string/virgüllü-string hepsini karşılıyor (bu backend'in liste alanı huyu — bkz. §4.3).
+- Tam ekran kaydırmalı galeri (Modal + paging FlatList) web'in lightbox'ının mobil karşılığı.
+
 ### 4.11 Test hesapları salt-okunur (403) — **doğrulandı (2026-07-23)**
 
 Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil.
@@ -164,7 +173,8 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 | Başvuranlar | `screens/jobs/JobApplicantsScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET .../applications` |
 | Üye öner | `screens/jobs/JobReferScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST .../refer` |
 | Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar + read-only), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
-| Keşfet (4 bölüm) | `screens/DiscoverScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET /events`, `/links`, `/newsletter`, `/youtube` |
+| Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
+| Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Yapılıyor** | `GET`/`PATCH /profile` (`website` alanı) |
 | Profil | `screens/ProfileScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
 | Community Brain | — | **Yapılmadı** (kapsam dışı, SSE gerekiyor) | `/brain-query*` |
 
@@ -189,6 +199,16 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-07-23 — Web'e hizalama (Directory, Match, Discover) + `onurrcelik/Exposure` incelendi
+
+- Kullanıcı web sitesinin kaynak reposuna erişim verdi (`github.com/onurrcelik/Exposure`, private, `git ls-remote` ile doğrulandı). Scratchpad'e klonlandı, `DashboardClient.tsx` (2286 satır) + `proxy.ts` + API route'ları incelendi. Bu, "API.md'ye göre tahmin" aşamasını bitirdi — artık her ekran gerçek web koduna göre hizalanıyor.
+- **Directory** yeniden yazıldı (§ Ekran Durumu). Zengin kart: `E{batch}` rozeti, konum pin, meslek, tür rozetleri, eğitim satırı, `✦` favori kaynak, LinkedIn/GitHub. Ayrı **Past Members** bölümü (web gibi, kullanıcı onayladı). **Gerçek bug bulundu ve düzeltildi:** `instagram`/`twitter` sosyal link sanılıp `Linking.openURL`'e veriliyordu — aslında Education/Area of Interest düz metni (§4.10). **Telefonda onaylandı.**
+- **Weekly Match** yeniden yazıldı: web'in 5 durumu (round yok / açık+cevapsız / opt-in / opt-out / eşleşmiş-partner / "Missed this round?"+Late opt-in / closed), pending confirmation'da Yes+No, match history, Auto opt-in toggle. **Telefonda onaylandı.**
+- **Read-only test hesabı çözüldü** (§4.11). Kullanıcının hesabı `member_category === 'test'` → tüm yazma istekleri 403. `lib/api.ts` + `InfoNotice` banner. Kullanıcı bunun sonra düzeltileceğini söyledi (Açık Soru 6).
+- **Discover** 4 bölüm web'e hizalandı: her bölümün başlık/rozet/aksiyonu, Events gerçek alanları (`type`/`images`/`attendees`/`upcoming`), Links arama+tarih aralığı+tip ikonları, Newsletter LATEST+Subscribe (**`publish_date` UNIX saniye bug'ı düzeltildi**), YouTube longForm/shorts ayrı grid. Nav header'ları Directory/Match/Discover için kapatıldı (ekranlar kendi başlığını çiziyor). **Telefonda onaylandı.**
+- **Event görsel galerisi** (§4.12): Supabase Storage görselleri render endpoint'iyle optimize + tam ekran kaydırmalı galeri. **Telefonda onaylandı.**
+- Bu adımlar **commit edilmedi** — kullanıcı toplu commit'i sonraya bıraktı.
 
 ### 2026-07-23 — İlk commit push'landı
 

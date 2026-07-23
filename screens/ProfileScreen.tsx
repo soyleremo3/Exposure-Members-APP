@@ -58,7 +58,9 @@ const FIELDS: {
   { key: 'twitter', label: 'Twitter / X', keyboardType: 'url' },
   { key: 'instagram', label: 'Instagram', keyboardType: 'url' },
   { key: 'github', label: 'GitHub', keyboardType: 'url' },
-  { key: 'website', label: 'Website', keyboardType: 'url' },
+  // NOTE: no `website` field. The website column is repurposed to store the
+  // Refer a Friend payload (a JSON blob) — exposing it as an editable text box
+  // here would let a member wipe their referrals. See API.md → Refer a Friend.
   { key: 'favorite_resource', label: 'Favorite resource' },
   { key: 'phone', label: 'Phone', maxLength: 40, keyboardType: 'phone-pad' },
 ];
