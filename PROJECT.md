@@ -170,6 +170,14 @@ API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-boa
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
 
+### 2026-07-23 — İlk commit push'landı
+
+- Kullanıcı uygulamayı telefonunda Expo Go ile açtı, **çalışıyor** — onay verildi.
+- İlk commit atıldı: `51ce49c` — 48 dosya, 13.345 satır. Mesaj İngilizce (§4.8).
+- `origin` = `https://github.com/soyleremo3/Exposure-Members-APP.git` eklendi, `git push -u origin main` başarılı. `main` uzak dalı takip ediyor.
+- Doğrulandı: `git ls-remote origin` → `refs/heads/main` = `51ce49c`.
+- **Sıradaki:** kullanıcı ekranlarda değişiklik/ekleme istiyor. Her değişiklik öncesi bu dosyayı oku, sonrasında bu günlüğe kayıt ekle.
+
 ### 2026-07-23 — Kararlar netleşti, repo hazır
 
 - **Arayüz dili İngilizce** olarak karara bağlandı (§4.7). Açık sorulardan çıkarıldı.
