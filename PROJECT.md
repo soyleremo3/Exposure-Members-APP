@@ -174,7 +174,7 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 | Üye öner | `screens/jobs/JobReferScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST .../refer` |
 | Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar + read-only), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
-| Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Yapılıyor** | `GET`/`PATCH /profile` (`website` alanı) |
+| Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Eklendi + nokta, telefonda onaylandı (2026-07-23)** | `GET`/`PATCH /profile` (`website` alanı) |
 | Profil | `screens/ProfileScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
 | Community Brain | — | **Yapılmadı** (kapsam dışı, SSE gerekiyor) | `/brain-query*` |
 
@@ -208,6 +208,7 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 - **Read-only test hesabı çözüldü** (§4.11). Kullanıcının hesabı `member_category === 'test'` → tüm yazma istekleri 403. `lib/api.ts` + `InfoNotice` banner. Kullanıcı bunun sonra düzeltileceğini söyledi (Açık Soru 6).
 - **Discover** 4 bölüm web'e hizalandı: her bölümün başlık/rozet/aksiyonu, Events gerçek alanları (`type`/`images`/`attendees`/`upcoming`), Links arama+tarih aralığı+tip ikonları, Newsletter LATEST+Subscribe (**`publish_date` UNIX saniye bug'ı düzeltildi**), YouTube longForm/shorts ayrı grid. Nav header'ları Directory/Match/Discover için kapatıldı (ekranlar kendi başlığını çiziyor). **Telefonda onaylandı.**
 - **Event görsel galerisi** (§4.12): Supabase Storage görselleri render endpoint'iyle optimize + tam ekran kaydırmalı galeri. **Telefonda onaylandı.**
+- **Refer a Friend** eklendi (Discover'ın son segment'i). Endpoint yok — `website` kolonuna JSON (§4.10). Segment pill'inde bildirim noktası (2 referral tam ise yeşil, değilse kırmızı — kullanıcı kararı). ProfileScreen'den editlenebilir `website` alanı kaldırıldı (referral'ları silme bug'ı). **Telefonda onaylandı.**
 - Bu adımlar **commit edilmedi** — kullanıcı toplu commit'i sonraya bıraktı.
 
 ### 2026-07-23 — İlk commit push'landı

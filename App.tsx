@@ -37,10 +37,6 @@ import DiscoverScreen from './screens/DiscoverScreen';
 import MatchScreen from './screens/MatchScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import JobBoardScreen from './screens/jobs/JobBoardScreen';
-import JobDetailScreen from './screens/jobs/JobDetailScreen';
-import JobComposeScreen from './screens/jobs/JobComposeScreen';
-import JobApplicantsScreen from './screens/jobs/JobApplicantsScreen';
-import JobReferScreen from './screens/jobs/JobReferScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -79,7 +75,13 @@ function Tabs() {
         component={DirectoryScreen}
         options={{ headerShown: false }}
       />
-      <Tab.Screen name="Jobs" component={JobBoardScreen} options={{ title: 'Job Board' }} />
+      {/* Job Board draws its own heading and expands rows in place, like the
+          website — no header, no detail screen. */}
+      <Tab.Screen
+        name="Jobs"
+        component={JobBoardScreen}
+        options={{ headerShown: false, tabBarLabel: 'Job Board' }}
+      />
       {/* Match draws its own "1-on-1 Match" heading, like the website, so the
           navigator header is off — but the tab keeps the "Weekly Match" label
           (KARAR 2) that the header title used to provide. */}
@@ -141,22 +143,6 @@ export default function App() {
               name="MemberDetail"
               component={MemberDetailScreen}
               options={{ title: '' }}
-            />
-            <Stack.Screen name="JobDetail" component={JobDetailScreen} options={{ title: '' }} />
-            <Stack.Screen
-              name="JobCompose"
-              component={JobComposeScreen}
-              options={{ title: 'New post' }}
-            />
-            <Stack.Screen
-              name="JobApplicants"
-              component={JobApplicantsScreen}
-              options={{ title: 'Applicants' }}
-            />
-            <Stack.Screen
-              name="JobRefer"
-              component={JobReferScreen}
-              options={{ title: 'Refer a member' }}
             />
           </Stack.Navigator>
         ) : (
