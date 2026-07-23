@@ -143,6 +143,17 @@ API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-boa
 
 Bunlar URL değil, düz metin. Eski `MemberDetailScreen` `instagram`/`twitter`'ı sosyal link sanıp `Linking.openURL` ile açmaya çalışıyordu — **gerçek bug, düzeltildi**. Ayrıntı API.md → Profile başındaki tablo. Sadece `linkedin`, `github`, `occupation_link` gerçek URL.
 
+### 4.13 Tema sistemi: Dark/Light/System, varsayılan Dark — **eklendi (2026-07-23)**
+
+Web'de yok, kullanıcı isteğiyle eklendi: uygulama ilk açılışta **koyu**, ama üye Profile > Appearance'tan Dark/Light/System arası geçebiliyor, tercih kalıcı (AsyncStorage).
+
+- **Mekanizma:** NativeWind v4 + Tailwind v3. `darkMode: 'class'` (manuel geçiş için şart, yoksa `setColorScheme` hata verir). Renkler **semantik token** (`bg-background`, `surface`, `chip`, `hairline`, `body`, `muted`, `faint`, `accent-link`) — `tailwind.config.js`'te `rgb(var(--x) / <alpha-value>)`. Ekranlar sadece bu token'ları kullanıyor, `dar​k:` varyantı serpiştirilmedi.
+- **Neden `.dark {}` değil, `vars()`:** Tailwind v3'te `.dark { --var }` CSS-değişken switch'inin NativeWind native'de çalıştığı **doğrulanamadı** (ctx7 dokümanları v4 `@theme`'e odaklı). Bunun yerine kesin çalışan yol: `App.tsx` kökünde `<View style={vars(...)}>` ile aktif temanın değişkenleri runtime sağlanıyor (`LIGHT_VARS`/`DARK_VARS`, `lib/theme.ts`). Şema değişince App re-render → değişkenler anında döner.
+- **İlk kare koyu:** `global.css` `:root` **koyu** değerlerle (varsayılan), ayrıca `App.tsx` modül yüklenince `colorScheme.set('dark')`. Kayıtlı tercih (light/system olabilir) boot effect'te uygulanıyor. Böylece açılışta beyaz flash yok.
+- **Class alamayan yerler** (`ActivityIndicator color`, `RefreshControl tintColor`, navigator `screenOptions`, `StatusBar`, NavigationContainer theme): `lib/theme.ts` → `useThemeColors()` hook'undan renk okuyor. İki tek istisna (ErrorNotice kırmızı kutusu) `dark:` varyantıyla dönüyor.
+- **Kontrol:** `ProfileScreen` → Appearance segment'i (Light/Dark/System), `useColorScheme().setColorScheme` + `saveThemePref`.
+- **Not:** exposureai.org sadece koyu; bu bilinçli bir "web'den sapma" (kullanıcı onayı ile). `brand-blue`/`brand-cream` tema-değişmez (buton dolgu + üstündeki metin).
+
 ### 4.12 Event görselleri: Supabase render + galeri — **eklendi (2026-07-23)**
 
 Event fotoları Supabase Storage `events` bucket'ında public URL (admin upload, max 10 MB). Web `EventImageGrid` sadece ilk fotoyu + sağ altta sayı rozetini gösteriyor, tıklayınca lightbox. Bizde:
@@ -156,7 +167,7 @@ Event fotoları Supabase Storage `events` bucket'ında public URL (admin upload,
 
 Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil.
 
-Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadOnlyError(e)` + `READ_ONLY_NOTICE`. Yazma yapan **her ekran**: `member_category === 'test'` ise üstte nötr `InfoNotice` banner'ı gösterir, mutation'daki read-only hatasını kırmızı `ErrorNotice` yerine sessizce yutar. Match'te uygulandı; Profile, Refer a Friend, Job Board'da da uygulanacak.
+Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadOnlyError(e)` + `READ_ONLY_NOTICE`. Yazma yapan **her ekran**: `member_category === 'test'` ise üstte nötr `InfoNotice` banner'ı gösterir, mutation'daki read-only hatasını kırmızı `ErrorNotice` yerine sessizce yutar. Match, Refer a Friend ve Job Board'da uygulandı. (ProfileScreen'in kendi yazma akışına henüz eklenmedi — Profile hizalaması yapıldığında eklenecek.)
 
 ---
 
@@ -167,16 +178,13 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 | Giriş | `screens/LoginScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST /api/members/auth` + Supabase `verifyOtp` |
 | Üye Rehberi | `screens/DirectoryScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | `GET /directory` |
 | Üye Detayı | `screens/MemberDetailScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | — (route param) |
-| İş İlanları listesi | `screens/jobs/JobBoardScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET /job-board` |
-| İlan detayı + başvuru | `screens/jobs/JobDetailScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `PATCH`/`DELETE /job-board/[id]`, `POST`/`DELETE .../apply` |
-| İlan oluştur/düzenle | `screens/jobs/JobComposeScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST /job-board`, `PATCH /job-board/[id]` |
-| Başvuranlar | `screens/jobs/JobApplicantsScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET .../applications` |
-| Üye öner | `screens/jobs/JobReferScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST .../refer` |
+| İş İlanları (tek ekran) | `screens/jobs/JobBoardScreen.tsx` | **Web modeline çevrildi (inline aç/başvur/öner/başvuranlar), telefon onayı bekliyor** | `GET`/`POST`/`PATCH`/`DELETE /job-board(/[id])`, `.../apply`, `.../refer`, `.../applications`, notifications |
 | Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar + read-only), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
 | Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Eklendi + nokta, telefonda onaylandı (2026-07-23)** | `GET`/`PATCH /profile` (`website` alanı) |
-| Profil | `screens/ProfileScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
-| Community Brain | — | **Yapılmadı** (kapsam dışı, SSE gerekiyor) | `/brain-query*` |
+| Profil | `screens/ProfileScreen.tsx` | **Appearance (tema) seçici eklendi; website alanı kaldırıldı; telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
+| Global tema (Dark/Light/System) | `lib/theme.ts`, `global.css`, `tailwind.config.js`, `App.tsx` | **Kuruldu (varsayılan Dark), telefon onayı bekliyor** | — |
+| Keşfet → Community Brain | — | **Yapılmadı** (sıradaki adım — "Coming Soon", allowlist'te değiliz) | `/community-graph`, `/brain-query*` |
 
 > **"Telefon onayı bekliyor"** = kod yazıldı, `tsc` ve `expo-doctor` temiz, ama kullanıcı kendi telefonunda Expo Go ile görüp onaylamadı. Onaylanmadan "bitti" sayılmaz.
 
@@ -209,6 +217,9 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 - **Discover** 4 bölüm web'e hizalandı: her bölümün başlık/rozet/aksiyonu, Events gerçek alanları (`type`/`images`/`attendees`/`upcoming`), Links arama+tarih aralığı+tip ikonları, Newsletter LATEST+Subscribe (**`publish_date` UNIX saniye bug'ı düzeltildi**), YouTube longForm/shorts ayrı grid. Nav header'ları Directory/Match/Discover için kapatıldı (ekranlar kendi başlığını çiziyor). **Telefonda onaylandı.**
 - **Event görsel galerisi** (§4.12): Supabase Storage görselleri render endpoint'iyle optimize + tam ekran kaydırmalı galeri. **Telefonda onaylandı.**
 - **Refer a Friend** eklendi (Discover'ın son segment'i). Endpoint yok — `website` kolonuna JSON (§4.10). Segment pill'inde bildirim noktası (2 referral tam ise yeşil, değilse kırmızı — kullanıcı kararı). ProfileScreen'den editlenebilir `website` alanı kaldırıldı (referral'ları silme bug'ı). **Telefonda onaylandı.**
+- **Job Board** web modeline çevrildi: tek ekran, satırlar yerinde açılıyor (compose/apply/refer/applicants inline), **sadece `type==='job'`** gösteriliyor (web öyle), compose her zaman `type:'job'`+`tags:[]`. 4 push ekranı (JobDetail/Compose/Applicants/Refer) silindi, `navigation.ts` sadeleşti. `expo-clipboard` eklendi (friend-referral kopyalama). Görsel referans + web repo'suyla hizalandı. **Telefon onayı bekliyor.**
+- **Tema sistemi** eklendi (§4.13): Dark/Light/System, varsayılan Dark, Profile > Appearance. Semantik token + `vars()` runtime provider. 272 sınıf otomatik migrate edildi (node script). **Telefon onayı bekliyor.**
+- **Sıradaki:** Community Brain "Coming Soon" (§5 tablosu) — plandaki 6. adım, tema araya girdiği için henüz yapılmadı.
 - Bu adımlar **commit edilmedi** — kullanıcı toplu commit'i sonraya bıraktı.
 
 ### 2026-07-23 — İlk commit push'landı

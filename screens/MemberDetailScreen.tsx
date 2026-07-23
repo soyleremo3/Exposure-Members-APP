@@ -33,17 +33,17 @@ export default function MemberDetailScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-brand-cream"
+      className="flex-1 bg-background"
       contentContainerStyle={{ padding: 20, paddingBottom: 48 }}
     >
       <View className="flex-row items-center">
         <Avatar uri={member.avatar_url} name={member.name} size={88} />
         <View className="ml-4 flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="flex-shrink text-lg font-bold text-zinc-900">{member.name}</Text>
+            <Text className="flex-shrink text-lg font-bold text-body">{member.name}</Text>
             {member.batch ? (
-              <View className="rounded bg-zinc-100 px-1.5 py-0.5">
-                <Text className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+              <View className="rounded bg-chip px-1.5 py-0.5">
+                <Text className="text-[9px] font-bold uppercase tracking-wider text-faint">
                   E{member.batch}
                 </Text>
               </View>
@@ -52,7 +52,7 @@ export default function MemberDetailScreen() {
           {member.location ? (
             <View className="mt-1 flex-row items-center gap-1.5">
               <Ionicons name="location-outline" size={14} color="#a1a1aa" />
-              <Text className="flex-1 text-sm text-zinc-500">{member.location}</Text>
+              <Text className="flex-1 text-sm text-faint">{member.location}</Text>
             </View>
           ) : null}
           {types.length > 0 ? (
@@ -73,7 +73,7 @@ export default function MemberDetailScreen() {
 
       {member.bio ? (
         <Field label="Current Occupation">
-          <Text className="text-sm leading-6 text-zinc-800">{member.bio}</Text>
+          <Text className="text-sm leading-6 text-body">{member.bio}</Text>
           {member.occupation_link ? (
             <TouchableOpacity
               className="mt-1.5 flex-row items-center gap-1"
@@ -81,7 +81,7 @@ export default function MemberDetailScreen() {
               onPress={() => Linking.openURL(withScheme(member.occupation_link!)).catch(() => {})}
             >
               <Ionicons name="globe-outline" size={12} color={BRAND_BLUE} />
-              <Text className="text-xs text-brand-blue">
+              <Text className="text-xs text-accent-link">
                 {member.occupation_link.replace(/^https?:\/\//, '')}
               </Text>
             </TouchableOpacity>
@@ -91,19 +91,19 @@ export default function MemberDetailScreen() {
 
       {member.twitter ? (
         <Field label="Area of Interest">
-          <Text className="text-sm text-zinc-800">{member.twitter}</Text>
+          <Text className="text-sm text-body">{member.twitter}</Text>
         </Field>
       ) : null}
 
       {member.instagram ? (
         <Field label="Education">
-          <Text className="text-sm text-zinc-800">{member.instagram}</Text>
+          <Text className="text-sm text-body">{member.instagram}</Text>
         </Field>
       ) : null}
 
       {member.favorite_resource ? (
         <Field label="Favorite Read / Video / Person">
-          <Text className="text-sm leading-6 text-zinc-800">{member.favorite_resource}</Text>
+          <Text className="text-sm leading-6 text-body">{member.favorite_resource}</Text>
         </Field>
       ) : null}
 
@@ -120,7 +120,7 @@ export default function MemberDetailScreen() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View className="mt-6">
-      <Text className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+      <Text className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-faint">
         {label}
       </Text>
       {children}
@@ -140,12 +140,12 @@ function LinkButton({
   if (!url) return null;
   return (
     <TouchableOpacity
-      className="flex-row items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5"
+      className="flex-row items-center gap-2 rounded-xl bg-chip px-4 py-2.5"
       activeOpacity={0.7}
       onPress={() => Linking.openURL(withScheme(url)).catch(() => {})}
     >
       <Ionicons name={icon} size={14} color="#52525b" />
-      <Text className="text-xs font-semibold text-zinc-600">{label}</Text>
+      <Text className="text-xs font-semibold text-muted">{label}</Text>
     </TouchableOpacity>
   );
 }

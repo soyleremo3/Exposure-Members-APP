@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Theme tokens — first-frame defaults.
+ *
+ * Colors are space-separated RGB channels so Tailwind's `<alpha-value>`
+ * modifier keeps working (e.g. `bg-surface/50`). The semantic names are mapped
+ * to these variables in tailwind.config.js; screens use only the semantic
+ * classes, so a theme is one set of variables — no `dark:` variants sprinkled
+ * around.
+ *
+ * These `:root` values are the DARK palette on purpose: the app defaults to
+ * dark, so painting dark on the very first frame avoids a light flash before
+ * JS runs. At runtime App.tsx wraps the tree in a `vars()` provider (see
+ * lib/theme.ts) that supplies the active theme's values — light or dark — and
+ * re-applies instantly when the member switches. The provider is the source of
+ * truth; this block only covers the first frame.
+ */
+:root {
+  --bg: 10 12 20; /* #0a0c14 */
+  --surface: 24 24 27; /* zinc-900 */
+  --surface-2: 9 9 11; /* zinc-950 */
+  --chip: 39 39 42; /* zinc-800 */
+  --hairline: 39 39 42; /* zinc-800 (reads like white/10 on black) */
+  --body: 255 255 255;
+  --muted: 212 212 216; /* zinc-300 */
+  --faint: 113 113 122; /* zinc-500 */
+  --accent-link: 96 165 250; /* blue-400 — readable on black, like the website */
+}

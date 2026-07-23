@@ -81,15 +81,15 @@ export default function DirectoryScreen() {
   return (
     // The navigator header is off for this tab (see App.tsx), so the top
     // inset has to be handled here.
-    <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="px-4 pb-3 pt-3">
-        <Text className="text-xl font-bold text-zinc-900">Member Directory</Text>
-        <Text className="mt-1 text-sm text-zinc-500">Turkey&apos;s top 1%.</Text>
+        <Text className="text-xl font-bold text-body">Member Directory</Text>
+        <Text className="mt-1 text-sm text-faint">Turkey&apos;s top 1%.</Text>
 
-        <View className="mt-4 flex-row items-center rounded-2xl border border-black/10 bg-white px-3.5">
+        <View className="mt-4 flex-row items-center rounded-2xl border border-hairline bg-surface px-3.5">
           <Ionicons name="search" size={16} color="#a1a1aa" />
           <TextInput
-            className="flex-1 py-3 pl-2.5 text-[15px] text-zinc-900"
+            className="flex-1 py-3 pl-2.5 text-[15px] text-body"
             placeholder="Search members by name, role, location…"
             placeholderTextColor="#a1a1aa"
             autoCapitalize="none"
@@ -112,7 +112,7 @@ export default function DirectoryScreen() {
         }
         ListHeaderComponent={
           nothingFound ? null : (
-            <Text className="mb-3 text-xs text-zinc-500">
+            <Text className="mb-3 text-xs text-faint">
               {current.length} member{current.length === 1 ? '' : 's'}
             </Text>
           )
@@ -133,10 +133,10 @@ export default function DirectoryScreen() {
           past.length === 0 ? null : (
             <View className="mt-6">
               <View className="mb-3 flex-row items-center gap-3">
-                <Text className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                <Text className="text-xs font-bold uppercase tracking-wider text-faint">
                   Past Members
                 </Text>
-                <Text className="text-xs text-zinc-400">{past.length}</Text>
+                <Text className="text-xs text-faint">{past.length}</Text>
                 <View className="h-px flex-1 bg-black/10" />
               </View>
               <View className="opacity-60">
@@ -162,7 +162,7 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
 
   return (
     <TouchableOpacity
-      className="mb-3 rounded-2xl border border-black/5 bg-white p-4"
+      className="mb-3 rounded-2xl border border-hairline bg-surface p-4"
       activeOpacity={0.7}
       onPress={onPress}
     >
@@ -170,7 +170,7 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
         <Avatar uri={member.avatar_url} name={member.name} size={56} />
         <View className="ml-3 flex-1">
           <View className="flex-row items-center gap-2">
-            <Text className="flex-shrink text-[15px] font-semibold text-zinc-900" numberOfLines={1}>
+            <Text className="flex-shrink text-[15px] font-semibold text-body" numberOfLines={1}>
               {member.name}
             </Text>
             {member.batch ? <CohortBadge label={`E${member.batch}`} /> : null}
@@ -179,7 +179,7 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
           {member.location ? (
             <View className="mt-1 flex-row items-center gap-1">
               <Ionicons name="location-outline" size={12} color="#a1a1aa" />
-              <Text className="flex-1 text-xs text-zinc-500" numberOfLines={1}>
+              <Text className="flex-1 text-xs text-faint" numberOfLines={1}>
                 {member.location}
               </Text>
             </View>
@@ -189,14 +189,14 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
 
       {/* `bio` is the member's current occupation, not a life story. */}
       {member.bio ? (
-        <Text className="mt-3 text-xs leading-5 text-zinc-700">{member.bio}</Text>
+        <Text className="mt-3 text-xs leading-5 text-muted">{member.bio}</Text>
       ) : null}
 
       {types.length > 0 ? (
         <View className="mt-2 flex-row flex-wrap gap-1">
           {types.map((type) => (
-            <View key={type} className="rounded-full bg-zinc-100 px-2 py-0.5">
-              <Text className="text-[10px] font-medium text-zinc-600">{type}</Text>
+            <View key={type} className="rounded-full bg-chip px-2 py-0.5">
+              <Text className="text-[10px] font-medium text-muted">{type}</Text>
             </View>
           ))}
         </View>
@@ -204,13 +204,13 @@ function MemberCard({ member, onPress }: { member: Member; onPress: () => void }
 
       {/* `instagram` holds the educational background — see API.md. */}
       {member.instagram ? (
-        <Text className="mt-2 text-xs text-zinc-500">{member.instagram}</Text>
+        <Text className="mt-2 text-xs text-faint">{member.instagram}</Text>
       ) : null}
 
       {/* Shown with a ✦ and deliberately NOT tappable, even when it's a URL —
           the website renders it as plain text too. */}
       {member.favorite_resource ? (
-        <Text className="mt-2 text-[11px] italic leading-5 text-zinc-500" numberOfLines={2}>
+        <Text className="mt-2 text-[11px] italic leading-5 text-faint" numberOfLines={2}>
           ✦ {member.favorite_resource}
         </Text>
       ) : null}
@@ -229,7 +229,7 @@ function CohortBadge({ label, tone = 'cohort' }: { label: string; tone?: 'cohort
   const style =
     tone === 'past'
       ? { box: 'border border-amber-500/20 bg-amber-400/10', text: 'text-amber-600' }
-      : { box: 'bg-zinc-100', text: 'text-zinc-500' };
+      : { box: 'bg-chip', text: 'text-faint' };
   return (
     <View className={`rounded px-1.5 py-0.5 ${style.box}`}>
       <Text className={`text-[9px] font-bold uppercase tracking-wider ${style.text}`}>{label}</Text>
@@ -252,12 +252,12 @@ function SocialButton({
   const href = url.startsWith('http') ? url : `https://${url}`;
   return (
     <TouchableOpacity
-      className="flex-row items-center gap-1.5 rounded-lg bg-zinc-100 px-2.5 py-1.5"
+      className="flex-row items-center gap-1.5 rounded-lg bg-chip px-2.5 py-1.5"
       activeOpacity={0.7}
       onPress={() => Linking.openURL(href).catch(() => {})}
     >
       <Ionicons name={icon} size={12} color="#52525b" />
-      <Text className="text-[10px] font-semibold text-zinc-600">{label}</Text>
+      <Text className="text-[10px] font-semibold text-muted">{label}</Text>
     </TouchableOpacity>
   );
 }

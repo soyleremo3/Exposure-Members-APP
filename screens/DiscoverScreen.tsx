@@ -76,7 +76,7 @@ export default function DiscoverScreen() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -97,7 +97,7 @@ export default function DiscoverScreen() {
             >
               <Text
                 className={`text-[13px] font-semibold ${
-                  active ? 'text-brand-cream' : 'text-brand-blue'
+                  active ? 'text-brand-cream' : 'text-accent-link'
                 }`}
               >
                 {s.label}
@@ -180,14 +180,14 @@ function SectionHeader({
     <View className="mb-4 flex-row items-start justify-between gap-3">
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <Text className="text-xl font-bold text-zinc-900">{title}</Text>
+          <Text className="text-xl font-bold text-body">{title}</Text>
           {badge ? (
             <View className={`rounded-full px-2 py-0.5 ${badge.className}`}>
               <Text className="text-[10px] font-bold uppercase tracking-wider">{badge.label}</Text>
             </View>
           ) : null}
         </View>
-        <Text className="mt-1 text-sm text-zinc-500">{subtitle}</Text>
+        <Text className="mt-1 text-sm text-faint">{subtitle}</Text>
       </View>
       {action}
     </View>
@@ -269,7 +269,7 @@ function EventCard({
   return (
     <View
       className={`mb-3 overflow-hidden rounded-2xl border ${
-        upcoming ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-black/5 bg-white'
+        upcoming ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-hairline bg-surface'
       }`}
     >
       {images.length > 0 ? (
@@ -293,7 +293,7 @@ function EventCard({
 
       <View className="p-4">
         <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="text-sm font-semibold text-zinc-900">
+          <Text className="text-sm font-semibold text-body">
             {event.title || 'Untitled event'}
           </Text>
           {upcoming ? (
@@ -318,12 +318,12 @@ function EventCard({
             </Text>
           </View>
           {images.length > 1 ? (
-            <Text className="text-[10px] text-zinc-400">{images.length} photos</Text>
+            <Text className="text-[10px] text-faint">{images.length} photos</Text>
           ) : null}
         </View>
 
         {event.description ? (
-          <Text className="mt-1.5 text-xs leading-5 text-zinc-500">{event.description}</Text>
+          <Text className="mt-1.5 text-xs leading-5 text-faint">{event.description}</Text>
         ) : null}
 
         <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-1">
@@ -440,7 +440,7 @@ function MetaRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: s
   return (
     <View className="flex-row items-center gap-1">
       <Ionicons name={icon} size={12} color="#a1a1aa" />
-      <Text className="text-xs text-zinc-500">{text}</Text>
+      <Text className="text-xs text-faint">{text}</Text>
     </View>
   );
 }
@@ -506,10 +506,10 @@ function LinksSection() {
       ListHeaderComponent={
         <>
           <SectionHeader title="Exposure Links" subtitle="Every link shared in Exposure." />
-          <View className="mb-5 flex-row items-center rounded-2xl border border-black/10 bg-white px-3.5">
+          <View className="mb-5 flex-row items-center rounded-2xl border border-hairline bg-surface px-3.5">
             <Ionicons name="search" size={16} color="#a1a1aa" />
             <TextInput
-              className="flex-1 py-3 pl-2.5 text-[15px] text-zinc-900"
+              className="flex-1 py-3 pl-2.5 text-[15px] text-body"
               placeholder="Search links by title or description…"
               placeholderTextColor="#a1a1aa"
               autoCapitalize="none"
@@ -530,12 +530,12 @@ function LinksSection() {
       renderItem={({ item: group }) => (
         <View className="mb-6">
           <View className="mb-3 flex-row items-center gap-3">
-            <Text className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+            <Text className="text-[11px] font-bold uppercase tracking-widest text-faint">
               {shortDate(group.date_from)}
               {group.date_to ? ` — ${longDateShort(group.date_to)}` : ''}
             </Text>
             <View className="h-px flex-1 bg-black/10" />
-            <Text className="text-[11px] text-zinc-400">
+            <Text className="text-[11px] text-faint">
               {group.links.length} link{group.links.length === 1 ? '' : 's'}
             </Text>
           </View>
@@ -552,27 +552,27 @@ function LinkRow({ link }: { link: SharedLink }) {
   const icon = linkIcon(link.type);
   return (
     <TouchableOpacity
-      className="mb-2 flex-row items-start gap-3 rounded-xl border border-black/5 bg-white px-4 py-3.5"
+      className="mb-2 flex-row items-start gap-3 rounded-xl border border-hairline bg-surface px-4 py-3.5"
       activeOpacity={0.8}
       onPress={() => Linking.openURL(link.url).catch(() => {})}
     >
-      <View className="mt-0.5 h-8 w-8 items-center justify-center rounded-lg bg-zinc-100">
+      <View className="mt-0.5 h-8 w-8 items-center justify-center rounded-lg bg-chip">
         <Ionicons name={icon.name} size={16} color="#52525b" />
       </View>
       <View className="min-w-0 flex-1">
-        <Text className="text-sm font-medium leading-snug text-zinc-900">
+        <Text className="text-sm font-medium leading-snug text-body">
           {link.title || link.label || link.url}
         </Text>
         {link.notes ? (
-          <Text className="mt-0.5 text-xs leading-5 text-zinc-500" numberOfLines={2}>
+          <Text className="mt-0.5 text-xs leading-5 text-faint" numberOfLines={2}>
             {link.notes}
           </Text>
         ) : null}
       </View>
       <View className="flex-row items-center gap-2">
         {link.label ? (
-          <View className="rounded-full bg-zinc-100 px-2.5 py-1">
-            <Text className="text-[10px] font-semibold text-zinc-600">{link.label}</Text>
+          <View className="rounded-full bg-chip px-2.5 py-1">
+            <Text className="text-[10px] font-semibold text-muted">{link.label}</Text>
           </View>
         ) : null}
         <Ionicons name="open-outline" size={14} color="#a1a1aa" />
@@ -646,7 +646,7 @@ function NewsletterSection() {
         return (
           <View
             className={`mb-3 rounded-2xl border p-5 ${
-              latest ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-black/5 bg-white'
+              latest ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-hairline bg-surface'
             }`}
           >
             {latest ? (
@@ -658,23 +658,23 @@ function NewsletterSection() {
             ) : null}
             <View className="flex-row items-start justify-between gap-4">
               <View className="flex-1">
-                <Text className="text-base font-bold text-zinc-900">{item.title}</Text>
+                <Text className="text-base font-bold text-body">{item.title}</Text>
                 {item.publish_date != null ? (
-                  <Text className="mt-1 text-xs text-zinc-400">
+                  <Text className="mt-1 text-xs text-faint">
                     {longDate(newsletterMillis(item.publish_date))}
                   </Text>
                 ) : null}
                 {item.subtitle ? (
-                  <Text className="mt-2 text-sm leading-5 text-zinc-600">{item.subtitle}</Text>
+                  <Text className="mt-2 text-sm leading-5 text-muted">{item.subtitle}</Text>
                 ) : null}
               </View>
               {item.web_url ? (
                 <TouchableOpacity
-                  className="mt-0.5 flex-row items-center gap-1 rounded-lg bg-zinc-100 px-3 py-2"
+                  className="mt-0.5 flex-row items-center gap-1 rounded-lg bg-chip px-3 py-2"
                   activeOpacity={0.7}
                   onPress={() => Linking.openURL(item.web_url).catch(() => {})}
                 >
-                  <Text className="text-xs font-medium text-zinc-600">Read</Text>
+                  <Text className="text-xs font-medium text-muted">Read</Text>
                   <Ionicons name="chevron-forward" size={14} color="#52525b" />
                 </TouchableOpacity>
               ) : null}
@@ -890,14 +890,14 @@ function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => vo
       {readOnly ? <InfoNotice message={READ_ONLY_NOTICE} /> : null}
       {error ? <ErrorNotice message={error} onRetry={load} /> : null}
 
-      <Text className="mb-5 text-sm leading-6 text-zinc-600">
+      <Text className="mb-5 text-sm leading-6 text-muted">
         Suggest 2 people you think would be a great addition to Exposure. We&apos;ll reach out to
         them directly.
       </Text>
 
       {([0, 1] as const).map((i) => (
-        <View key={i} className="mb-4 rounded-2xl border border-black/5 bg-white p-5">
-          <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+        <View key={i} className="mb-4 rounded-2xl border border-hairline bg-surface p-5">
+          <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-faint">
             Friend {i + 1}
           </Text>
           <ReferralInput
@@ -966,7 +966,7 @@ function ReferralInput({
 }) {
   return (
     <TextInput
-      className={`mb-3 rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900 ${
+      className={`mb-3 rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-[15px] text-body ${
         multiline ? 'h-20' : ''
       }`}
       value={value}
@@ -986,7 +986,7 @@ function VideoCard({ video, vertical }: { video: YoutubeVideo; vertical?: boolea
   const uri = thumbUrl(video);
   return (
     <TouchableOpacity
-      className={`mb-3 overflow-hidden rounded-2xl border border-black/5 bg-white ${
+      className={`mb-3 overflow-hidden rounded-2xl border border-hairline bg-surface ${
         vertical ? 'w-[48%]' : ''
       }`}
       activeOpacity={0.85}
@@ -1003,7 +1003,7 @@ function VideoCard({ video, vertical }: { video: YoutubeVideo; vertical?: boolea
         ) : (
           <View
             style={{ width: '100%', aspectRatio: vertical ? 9 / 16 : 16 / 9 }}
-            className="items-center justify-center bg-zinc-200"
+            className="items-center justify-center bg-chip"
           >
             <Ionicons name="logo-youtube" size={28} color="#a1a1aa" />
           </View>
@@ -1017,12 +1017,12 @@ function VideoCard({ video, vertical }: { video: YoutubeVideo; vertical?: boolea
       </View>
       <View className={vertical ? 'p-3' : 'p-4'}>
         <Text
-          className={`font-semibold leading-snug text-zinc-900 ${vertical ? 'text-xs' : 'text-sm'}`}
+          className={`font-semibold leading-snug text-body ${vertical ? 'text-xs' : 'text-sm'}`}
           numberOfLines={2}
         >
           {video.title}
         </Text>
-        <Text className={`mt-1 text-zinc-400 ${vertical ? 'text-[11px]' : 'text-xs'}`}>
+        <Text className={`mt-1 text-faint ${vertical ? 'text-[11px]' : 'text-xs'}`}>
           {ytDate(video.published_at)}
         </Text>
       </View>

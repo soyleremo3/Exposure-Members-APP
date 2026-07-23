@@ -157,7 +157,7 @@ export default function JobBoardScreen() {
   if (loading) return <Loading />;
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -172,8 +172,8 @@ export default function JobBoardScreen() {
           }
           ListHeaderComponent={
             <View>
-              <Text className="text-xl font-bold text-zinc-900">Job Board</Text>
-              <Text className="mt-1 text-sm text-zinc-500">
+              <Text className="text-xl font-bold text-body">Job Board</Text>
+              <Text className="mt-1 text-sm text-faint">
                 Jobs and needs from Exposure founders.
               </Text>
 
@@ -207,10 +207,10 @@ export default function JobBoardScreen() {
                 />
               ) : null}
 
-              <View className="mt-2 flex-row items-center rounded-xl border border-black/10 bg-white px-3.5">
+              <View className="mt-2 flex-row items-center rounded-xl border border-hairline bg-surface px-3.5">
                 <Ionicons name="search" size={16} color="#a1a1aa" />
                 <TextInput
-                  className="flex-1 py-3 pl-2.5 text-[15px] text-zinc-900"
+                  className="flex-1 py-3 pl-2.5 text-[15px] text-body"
                   placeholder="Search titles, descriptions, people, companies…"
                   placeholderTextColor="#a1a1aa"
                   autoCapitalize="none"
@@ -244,10 +244,10 @@ export default function JobBoardScreen() {
 
               {jobs.length > 0 ? (
                 <View className="mb-3 mt-6 flex-row items-center gap-3">
-                  <Text className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                  <Text className="text-[10px] font-bold uppercase tracking-[0.18em] text-faint">
                     Jobs
                   </Text>
-                  <Text className="text-[10px] text-zinc-400">{jobs.length}</Text>
+                  <Text className="text-[10px] text-faint">{jobs.length}</Text>
                   <View className="h-px flex-1 bg-black/10" />
                 </View>
               ) : null}
@@ -300,7 +300,7 @@ function LocationChip({
     >
       <Ionicons name="location-outline" size={12} color={active ? '#fff' : BRAND_BLUE} />
       <Text
-        className={`text-[13px] font-semibold ${active ? 'text-white' : 'text-brand-blue'}`}
+        className={`text-[13px] font-semibold ${active ? 'text-white' : 'text-accent-link'}`}
       >
         {label}
       </Text>
@@ -343,7 +343,7 @@ function NotifyCard({ readOnly }: { readOnly: boolean }) {
   if (!sub) return null;
 
   return (
-    <View className="mt-4 rounded-2xl border border-black/5 bg-white p-5">
+    <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5">
       <NotifyToggle
         label="Email me about new jobs"
         description={
@@ -387,8 +387,8 @@ function NotifyToggle({
   return (
     <View className="flex-row items-start justify-between gap-4">
       <View className="flex-1">
-        <Text className="text-sm font-medium text-zinc-900">{label}</Text>
-        <Text className="mt-0.5 text-xs text-zinc-500">{description}</Text>
+        <Text className="text-sm font-medium text-body">{label}</Text>
+        <Text className="mt-0.5 text-xs text-faint">{description}</Text>
       </View>
       <TouchableOpacity
         className={`mt-0.5 h-6 w-11 justify-center rounded-full px-0.5 ${
@@ -398,7 +398,7 @@ function NotifyToggle({
         disabled={disabled}
         onPress={onToggle}
       >
-        <View className={`h-5 w-5 rounded-full bg-white ${enabled ? 'self-end' : 'self-start'}`} />
+        <View className={`h-5 w-5 rounded-full bg-surface ${enabled ? 'self-end' : 'self-start'}`} />
       </TouchableOpacity>
     </View>
   );
@@ -442,13 +442,13 @@ function PostForm({
   }
 
   return (
-    <View className="mt-4 overflow-hidden rounded-2xl border border-black/10 bg-white">
-      <View className="flex-row items-start justify-between border-b border-black/5 px-5 py-4">
+    <View className="mt-4 overflow-hidden rounded-2xl border border-hairline bg-surface">
+      <View className="flex-row items-start justify-between border-b border-hairline px-5 py-4">
         <View className="flex-1 pr-3">
-          <Text className="text-sm font-semibold text-zinc-900">
+          <Text className="text-sm font-semibold text-body">
             {post ? 'Edit post' : 'Add to the Job Board'}
           </Text>
-          <Text className="mt-0.5 text-xs text-zinc-500">
+          <Text className="mt-0.5 text-xs text-faint">
             Members apply with a short note and profile — you review applicants and reach out.
           </Text>
         </View>
@@ -460,7 +460,7 @@ function PostForm({
       <View className="gap-4 p-5">
         <Field label="Title">
           <TextInput
-            className="rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900"
+            className="rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-[15px] text-body"
             value={title}
             onChangeText={setTitle}
             maxLength={140}
@@ -469,7 +469,7 @@ function PostForm({
         </Field>
         <Field label="Description">
           <TextInput
-            className="h-32 rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-[15px] leading-6 text-zinc-900"
+            className="h-32 rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-[15px] leading-6 text-body"
             value={description}
             onChangeText={setDescription}
             maxLength={5000}
@@ -480,7 +480,7 @@ function PostForm({
         </Field>
         <Field label="Location" hint="optional, blank means Online">
           <TextInput
-            className="rounded-xl border border-black/10 bg-zinc-50 px-4 py-3 text-[15px] text-zinc-900"
+            className="rounded-xl border border-hairline bg-surface-2 px-4 py-3 text-[15px] text-body"
             value={location}
             onChangeText={setLocation}
             maxLength={120}
@@ -490,9 +490,9 @@ function PostForm({
 
         {error ? <Text className="text-xs text-red-600">{error}</Text> : null}
 
-        <View className="flex-row justify-end gap-2 border-t border-black/5 pt-4">
+        <View className="flex-row justify-end gap-2 border-t border-hairline pt-4">
           <TouchableOpacity className="px-4 py-2.5" activeOpacity={0.7} onPress={onCancel}>
-            <Text className="text-xs font-semibold text-zinc-500">Cancel</Text>
+            <Text className="text-xs font-semibold text-faint">Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
             className={`rounded-xl bg-brand-blue px-5 py-2.5 ${saving ? 'opacity-50' : ''}`}
@@ -523,9 +523,9 @@ function Field({
 }) {
   return (
     <View>
-      <Text className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+      <Text className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-faint">
         {label}
-        {hint ? <Text className="font-normal normal-case tracking-normal text-zinc-400"> {hint}</Text> : null}
+        {hint ? <Text className="font-normal normal-case tracking-normal text-faint"> {hint}</Text> : null}
       </Text>
       {children}
     </View>
@@ -554,7 +554,7 @@ function PostRow({
   const company = post.author.company_name || 'Independent';
 
   return (
-    <View className={`mb-2 overflow-hidden rounded-2xl border border-black/5 bg-white ${expanded ? 'bg-white' : ''}`}>
+    <View className={`mb-2 overflow-hidden rounded-2xl border border-hairline bg-surface ${expanded ? 'bg-surface' : ''}`}>
       <TouchableOpacity
         className="flex-row items-start gap-3 p-4"
         activeOpacity={0.7}
@@ -563,16 +563,16 @@ function PostRow({
         <Avatar uri={post.author.avatar_url} name={post.author.name} size={44} />
         <View className="min-w-0 flex-1">
           <View className="flex-row flex-wrap items-center gap-2">
-            <Text className="text-[15px] font-semibold text-brand-blue">{post.title}</Text>
+            <Text className="text-[15px] font-semibold text-accent-link">{post.title}</Text>
             {post.status === 'closed' ? <Tag label="Closed" tone="muted" /> : null}
             {post.is_own ? <Tag label="Yours" tone="blue" /> : null}
           </View>
           <View className="mt-1 flex-row flex-wrap items-center gap-x-1.5 gap-y-1">
-            <Text className="text-xs text-zinc-600">{company}</Text>
-            <Text className="text-xs text-zinc-400">•</Text>
+            <Text className="text-xs text-muted">{company}</Text>
+            <Text className="text-xs text-faint">•</Text>
             <View className="flex-row items-center gap-1">
               <Ionicons name="location-outline" size={11} color="#a1a1aa" />
-              <Text className="text-xs text-zinc-500">{displayLocation(post)}</Text>
+              <Text className="text-xs text-faint">{displayLocation(post)}</Text>
             </View>
           </View>
         </View>
@@ -594,8 +594,8 @@ function PostRow({
 function Tag({ label, tone }: { label: string; tone: 'muted' | 'blue' }) {
   const style =
     tone === 'blue'
-      ? { box: 'bg-brand-blue/15', text: 'text-brand-blue' }
-      : { box: 'bg-zinc-100', text: 'text-zinc-500' };
+      ? { box: 'bg-brand-blue/15', text: 'text-accent-link' }
+      : { box: 'bg-chip', text: 'text-faint' };
   return (
     <View className={`rounded px-1.5 py-0.5 ${style.box}`}>
       <Text className={`text-[9px] font-bold uppercase tracking-wider ${style.text}`}>{label}</Text>
@@ -609,12 +609,12 @@ function Tag({ label, tone }: { label: string; tone: 'muted' | 'blue' }) {
 function DescriptionText({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
   return (
-    <Text className="text-sm leading-7 text-zinc-700">
+    <Text className="text-sm leading-7 text-muted">
       {parts.map((part, i) =>
         part.startsWith('http') ? (
           <Text
             key={i}
-            className="text-brand-blue"
+            className="text-accent-link"
             onPress={() => Linking.openURL(part).catch(() => {})}
           >
             {part}
@@ -682,19 +682,19 @@ function PostDetails({
   }
 
   return (
-    <View className="border-t border-black/5 bg-zinc-50 px-5 py-5">
+    <View className="border-t border-hairline bg-surface-2 px-5 py-5">
       <DescriptionText text={post.description} />
 
-      <Text className="mt-4 text-[11px] text-zinc-500">
-        Posted by <Text className="font-medium text-zinc-700">{post.author.name}</Text>
+      <Text className="mt-4 text-[11px] text-faint">
+        Posted by <Text className="font-medium text-muted">{post.author.name}</Text>
         {post.author.company_name ? ` at ${post.author.company_name}` : ''}
       </Text>
 
       {tags.length > 0 ? (
         <View className="mt-4 flex-row flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <View key={tag} className="rounded-full bg-zinc-100 px-2.5 py-1">
-              <Text className="text-[10px] font-medium text-zinc-600">{tag}</Text>
+            <View key={tag} className="rounded-full bg-chip px-2.5 py-1">
+              <Text className="text-[10px] font-medium text-muted">{tag}</Text>
             </View>
           ))}
         </View>
@@ -704,12 +704,12 @@ function PostDetails({
         <View className="mt-5 rounded-xl border border-brand-blue/30 bg-brand-blue/10 px-4 py-3">
           <View className="flex-row items-center gap-2">
             <Ionicons name="sparkles" size={14} color={BRAND_BLUE} />
-            <Text className="text-xs font-semibold text-brand-blue">
+            <Text className="text-xs font-semibold text-accent-link">
               {post.incoming_referral.referrer_name} referred you for this role
             </Text>
           </View>
           {post.incoming_referral.note ? (
-            <Text className="mt-1.5 text-xs leading-5 text-zinc-600">
+            <Text className="mt-1.5 text-xs leading-5 text-muted">
               “{post.incoming_referral.note}”
             </Text>
           ) : null}
@@ -720,7 +720,7 @@ function PostDetails({
 
       {/* Someone else's post: apply / refer */}
       {!post.is_own ? (
-        <View className="mt-5 border-t border-black/5 pt-5">
+        <View className="mt-5 border-t border-hairline pt-5">
           {post.viewer_applied ? (
             <View className="flex-row flex-wrap items-center gap-3">
               <View className="flex-row items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5">
@@ -735,7 +735,7 @@ function PostDetails({
                   run(() => withdrawApplication(post.id), 'Could not withdraw'),
                 )}
               >
-                <Text className="text-[11px] font-semibold text-zinc-500">Withdraw</Text>
+                <Text className="text-[11px] font-semibold text-faint">Withdraw</Text>
               </TouchableOpacity>
             </View>
           ) : post.status === 'open' ? (
@@ -751,7 +751,7 @@ function PostDetails({
                 <Text className="text-xs font-semibold text-white">Apply</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="flex-row items-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 py-2.5"
+                className="flex-row items-center gap-1.5 rounded-xl border border-hairline bg-surface px-4 py-2.5"
                 activeOpacity={0.8}
                 onPress={() => {
                   setShowRefer((v) => !v);
@@ -759,13 +759,13 @@ function PostDetails({
                 }}
               >
                 <Ionicons name="person-add-outline" size={14} color="#52525b" />
-                <Text className="text-xs font-semibold text-zinc-700">Refer a friend</Text>
+                <Text className="text-xs font-semibold text-muted">Refer a friend</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View className="flex-row items-center gap-2">
               <Ionicons name="lock-closed-outline" size={14} color="#a1a1aa" />
-              <Text className="text-xs text-zinc-500">This post is closed.</Text>
+              <Text className="text-xs text-faint">This post is closed.</Text>
             </View>
           )}
 
@@ -793,7 +793,7 @@ function PostDetails({
 
       {/* Your own post: edit / close / refer / delete + applicants */}
       {post.is_own ? (
-        <View className="mt-5 border-t border-black/5 pt-5">
+        <View className="mt-5 border-t border-hairline pt-5">
           <View className="mb-4 flex-row flex-wrap gap-2">
             <OwnerButton icon="pencil" label="Edit" disabled={working} onPress={onEdit} />
             {post.status === 'open' ? (
@@ -841,14 +841,14 @@ function PostDetails({
 
           <View className="mt-2 flex-row items-center gap-2">
             <Ionicons name="people-outline" size={14} color="#a1a1aa" />
-            <Text className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+            <Text className="text-[10px] font-semibold uppercase tracking-wider text-faint">
               Applicants ({post.application_count})
             </Text>
           </View>
           {loadingApps ? (
             <ActivityIndicator className="mt-3" color={BRAND_BLUE} />
           ) : applications.length === 0 ? (
-            <Text className="mt-3 text-xs text-zinc-500">No applications yet.</Text>
+            <Text className="mt-3 text-xs text-faint">No applications yet.</Text>
           ) : (
             <View className="mt-3 gap-3">
               {applications.map((application) => (
@@ -881,14 +881,14 @@ function OwnerButton({
   return (
     <TouchableOpacity
       className={`flex-row items-center gap-1.5 rounded-xl px-3 py-2 ${
-        danger ? 'bg-red-500/10' : 'bg-zinc-100'
+        danger ? 'bg-red-500/10' : 'bg-chip'
       } ${disabled ? 'opacity-50' : ''}`}
       activeOpacity={0.7}
       disabled={disabled}
       onPress={onPress}
     >
       <Ionicons name={icon} size={14} color={danger ? '#dc2626' : '#52525b'} />
-      <Text className={`text-xs font-semibold ${danger ? 'text-red-600' : 'text-zinc-700'}`}>
+      <Text className={`text-xs font-semibold ${danger ? 'text-red-600' : 'text-muted'}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -929,16 +929,16 @@ function ApplyPanel({
   }
 
   return (
-    <View className="mt-4 gap-4 rounded-xl border border-black/10 bg-white p-4">
+    <View className="mt-4 gap-4 rounded-xl border border-hairline bg-surface p-4">
       <View>
         <View className="mb-2 flex-row items-center justify-between">
-          <Text className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <Text className="text-[10px] font-semibold uppercase tracking-wider text-faint">
             Why you&apos;re a fit
           </Text>
-          <Text className="text-[10px] text-zinc-400">{pitch.length}/1500</Text>
+          <Text className="text-[10px] text-faint">{pitch.length}/1500</Text>
         </View>
         <TextInput
-          className="h-24 rounded-xl border border-black/10 bg-zinc-50 px-3.5 py-2.5 text-sm leading-6 text-zinc-900"
+          className="h-24 rounded-xl border border-hairline bg-surface-2 px-3.5 py-2.5 text-sm leading-6 text-body"
           value={pitch}
           onChangeText={setPitch}
           maxLength={1500}
@@ -950,11 +950,11 @@ function ApplyPanel({
       </View>
 
       <View>
-        <Text className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-          Link <Text className="font-normal normal-case tracking-normal text-zinc-400">optional — portfolio, CV, LinkedIn</Text>
+        <Text className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-faint">
+          Link <Text className="font-normal normal-case tracking-normal text-faint">optional — portfolio, CV, LinkedIn</Text>
         </Text>
         <TextInput
-          className="rounded-xl border border-black/10 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900"
+          className="rounded-xl border border-hairline bg-surface-2 px-3.5 py-2.5 text-sm text-body"
           value={link}
           onChangeText={setLink}
           maxLength={500}
@@ -964,7 +964,7 @@ function ApplyPanel({
         />
       </View>
 
-      <Text className="text-[11px] leading-5 text-zinc-500">
+      <Text className="text-[11px] leading-5 text-faint">
         Your profile and contact details are shared with the poster so they can reach out.
       </Text>
 
@@ -972,7 +972,7 @@ function ApplyPanel({
 
       <View className="flex-row justify-end gap-2">
         <TouchableOpacity className="px-4 py-2.5" activeOpacity={0.7} onPress={onCancel}>
-          <Text className="text-xs font-semibold text-zinc-500">Cancel</Text>
+          <Text className="text-xs font-semibold text-faint">Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           className={`rounded-xl bg-brand-blue px-5 py-2.5 ${saving ? 'opacity-50' : ''}`}
@@ -1059,8 +1059,8 @@ function ReferPanel({
   }
 
   return (
-    <View className="mt-4 rounded-xl border border-black/10 bg-white p-4">
-      <View className="mb-4 flex-row gap-1 rounded-xl bg-zinc-100 p-1">
+    <View className="mt-4 rounded-xl border border-hairline bg-surface p-4">
+      <View className="mb-4 flex-row gap-1 rounded-xl bg-chip p-1">
         {(['member', 'friend'] as const).map((value) => (
           <TouchableOpacity
             key={value}
@@ -1074,7 +1074,7 @@ function ReferPanel({
             }}
           >
             <Text
-              className={`text-xs font-semibold ${tab === value ? 'text-white' : 'text-zinc-500'}`}
+              className={`text-xs font-semibold ${tab === value ? 'text-white' : 'text-faint'}`}
             >
               {value === 'member' ? 'A member' : 'An outside friend'}
             </Text>
@@ -1093,21 +1093,21 @@ function ReferPanel({
         ) : (
           <View className="gap-4">
             {selected ? (
-              <View className="flex-row items-center justify-between rounded-xl border border-black/10 bg-zinc-50 px-3 py-2.5">
+              <View className="flex-row items-center justify-between rounded-xl border border-hairline bg-surface-2 px-3 py-2.5">
                 <View className="flex-row items-center gap-2.5">
                   <Avatar uri={selected.avatar_url} name={selected.name} size={32} />
-                  <Text className="text-sm font-medium text-zinc-900">{selected.name}</Text>
+                  <Text className="text-sm font-medium text-body">{selected.name}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setSelected(null)}>
-                  <Text className="text-[11px] font-semibold text-zinc-500">Change</Text>
+                  <Text className="text-[11px] font-semibold text-faint">Change</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View>
-                <View className="flex-row items-center rounded-xl border border-black/10 bg-zinc-50 px-3">
+                <View className="flex-row items-center rounded-xl border border-hairline bg-surface-2 px-3">
                   <Ionicons name="search" size={16} color="#a1a1aa" />
                   <TextInput
-                    className="flex-1 py-2.5 pl-2 text-sm text-zinc-900"
+                    className="flex-1 py-2.5 pl-2 text-sm text-body"
                     value={search}
                     onChangeText={setSearch}
                     placeholder="Search members by name..."
@@ -1116,18 +1116,18 @@ function ReferPanel({
                   />
                 </View>
                 {candidates.length > 0 ? (
-                  <View className="mt-2 overflow-hidden rounded-xl border border-black/10">
+                  <View className="mt-2 overflow-hidden rounded-xl border border-hairline">
                     {candidates.map((m, i) => (
                       <TouchableOpacity
                         key={m.id}
                         className={`flex-row items-center gap-2.5 px-3 py-2.5 ${
-                          i > 0 ? 'border-t border-black/5' : ''
+                          i > 0 ? 'border-t border-hairline' : ''
                         }`}
                         activeOpacity={0.7}
                         onPress={() => setSelected(m)}
                       >
                         <Avatar uri={m.avatar_url} name={m.name} size={32} />
-                        <Text className="text-sm text-zinc-800">{m.name}</Text>
+                        <Text className="text-sm text-body">{m.name}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -1138,13 +1138,13 @@ function ReferPanel({
             {selected ? (
               <View>
                 <View className="mb-2 flex-row items-center justify-between">
-                  <Text className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                    Note <Text className="font-normal normal-case tracking-normal text-zinc-400">optional</Text>
+                  <Text className="text-[10px] font-semibold uppercase tracking-wider text-faint">
+                    Note <Text className="font-normal normal-case tracking-normal text-faint">optional</Text>
                   </Text>
-                  <Text className="text-[10px] text-zinc-400">{note.length}/500</Text>
+                  <Text className="text-[10px] text-faint">{note.length}/500</Text>
                 </View>
                 <TextInput
-                  className="h-20 rounded-xl border border-black/10 bg-zinc-50 px-3.5 py-2.5 text-sm leading-6 text-zinc-900"
+                  className="h-20 rounded-xl border border-hairline bg-surface-2 px-3.5 py-2.5 text-sm leading-6 text-body"
                   value={note}
                   onChangeText={setNote}
                   maxLength={500}
@@ -1160,7 +1160,7 @@ function ReferPanel({
 
             <View className="flex-row justify-end gap-2">
               <TouchableOpacity className="px-4 py-2.5" activeOpacity={0.7} onPress={onCancel}>
-                <Text className="text-xs font-semibold text-zinc-500">Cancel</Text>
+                <Text className="text-xs font-semibold text-faint">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className={`rounded-xl bg-brand-blue px-5 py-2.5 ${
@@ -1181,14 +1181,14 @@ function ReferPanel({
         )
       ) : (
         <View className="gap-3">
-          <Text className="text-xs leading-5 text-zinc-500">
+          <Text className="text-xs leading-5 text-faint">
             Share this link with someone outside the community. They can apply directly, and it&apos;ll
             show the poster that you referred them.
           </Text>
           {friendLink ? (
             <View className="flex-row items-center gap-2">
               <Text
-                className="flex-1 rounded-xl border border-black/10 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-600"
+                className="flex-1 rounded-xl border border-hairline bg-surface-2 px-3.5 py-2.5 text-xs text-muted"
                 numberOfLines={1}
               >
                 {friendLink}
@@ -1203,11 +1203,11 @@ function ReferPanel({
               </TouchableOpacity>
             </View>
           ) : (
-            <Text className="text-xs text-zinc-500">No share link is available for this post.</Text>
+            <Text className="text-xs text-faint">No share link is available for this post.</Text>
           )}
           <View className="flex-row justify-end">
             <TouchableOpacity className="px-4 py-2" activeOpacity={0.7} onPress={onCancel}>
-              <Text className="text-xs font-semibold text-zinc-500">Done</Text>
+              <Text className="text-xs font-semibold text-faint">Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1219,21 +1219,21 @@ function ReferPanel({
 function ApplicantCard({ application }: { application: JobApplication }) {
   const { applicant } = application;
   return (
-    <View className="rounded-xl border border-black/5 bg-white p-4">
+    <View className="rounded-xl border border-hairline bg-surface p-4">
       <View className="flex-row items-start gap-3">
         <Avatar uri={applicant.avatar_url} name={applicant.name} size={36} />
         <View className="min-w-0 flex-1">
           <View className="flex-row flex-wrap items-center gap-2">
-            <Text className="text-sm font-semibold text-zinc-900">{applicant.name}</Text>
+            <Text className="text-sm font-semibold text-body">{applicant.name}</Text>
             {applicant.company_name ? (
-              <Text className="text-[11px] text-zinc-500">{applicant.company_name}</Text>
+              <Text className="text-[11px] text-faint">{applicant.company_name}</Text>
             ) : null}
             {applicant.is_external ? <Tag label="External" tone="muted" /> : null}
           </View>
           {application.referred_by_name ? (
             <View className="mt-1 flex-row items-center gap-1">
               <Ionicons name="sparkles" size={11} color={BRAND_BLUE} />
-              <Text className="text-[11px] text-brand-blue">
+              <Text className="text-[11px] text-accent-link">
                 Referred by {application.referred_by_name}
               </Text>
             </View>
@@ -1241,7 +1241,7 @@ function ApplicantCard({ application }: { application: JobApplication }) {
         </View>
       </View>
 
-      <Text className="mt-3 text-xs leading-6 text-zinc-700">{application.pitch}</Text>
+      <Text className="mt-3 text-xs leading-6 text-muted">{application.pitch}</Text>
 
       <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1.5">
         {applicant.email ? (
@@ -1285,7 +1285,7 @@ function ContactChip({
   onPress?: () => void;
 }) {
   const color = tint ? BRAND_BLUE : '#a1a1aa';
-  const textClass = tint ? 'text-brand-blue' : 'text-zinc-500';
+  const textClass = tint ? 'text-accent-link' : 'text-faint';
   const content = (
     <View className="flex-row items-center gap-1">
       <Ionicons name={icon} size={13} color={color} />

@@ -99,20 +99,20 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-cream">
+    <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         className="flex-1 justify-center px-7"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text className="text-center text-4xl font-black text-zinc-900">Exposure</Text>
-        <Text className="mb-8 mt-2 text-center text-[15px] text-zinc-500">
+        <Text className="text-center text-4xl font-black text-body">Exposure</Text>
+        <Text className="mb-8 mt-2 text-center text-[15px] text-faint">
           For existing Exposure members.
         </Text>
 
         {step === 'email' ? (
           <>
             <TextInput
-              className="rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-base text-zinc-900"
+              className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-base text-body"
               placeholder="you@example.com"
               placeholderTextColor="#a1a1aa"
               autoCapitalize="none"
@@ -138,12 +138,12 @@ export default function LoginScreen() {
           </>
         ) : (
           <>
-            <Text className="mb-4 text-center text-sm text-zinc-500">
+            <Text className="mb-4 text-center text-sm text-faint">
               If {email.trim()} is a member, we’ve emailed a login code. Check your inbox
               (and spam folder).
             </Text>
             <TextInput
-              className="rounded-2xl border border-black/10 bg-white px-4 py-3.5 text-center text-2xl tracking-[8px] text-zinc-900"
+              className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-center text-2xl tracking-[8px] text-body"
               placeholderTextColor="#a1a1aa"
               keyboardType="number-pad"
               maxLength={MAX_CODE_LENGTH}
@@ -173,7 +173,7 @@ export default function LoginScreen() {
               }}
               disabled={busy}
             >
-              <Text className="text-center text-sm text-brand-blue">Use a different email</Text>
+              <Text className="text-center text-sm text-accent-link">Use a different email</Text>
             </TouchableOpacity>
           </>
         )}

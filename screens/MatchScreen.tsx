@@ -134,14 +134,14 @@ export default function MatchScreen() {
   const readOnly = self?.member_category === 'test';
 
   return (
-    <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
         }
       >
-        <Text className="text-xl font-bold text-zinc-900">1-on-1 Match</Text>
-        <Text className="mt-1 text-sm text-zinc-500">
+        <Text className="text-xl font-bold text-body">1-on-1 Match</Text>
+        <Text className="mt-1 text-sm text-faint">
           Get matched with another Exposure member for a 30-min call.
         </Text>
 
@@ -153,7 +153,7 @@ export default function MatchScreen() {
         {/* Last week's partner, still unconfirmed — asked about first because
             it's the one thing needing action. */}
         {data?.pendingConfirmation && !confirmationDone ? (
-          <View className="mt-5 rounded-2xl border border-amber-500/30 bg-white p-5">
+          <View className="mt-5 rounded-2xl border border-amber-500/30 bg-surface p-5">
             <Text className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-amber-600">
               Last Week&apos;s Match
             </Text>
@@ -164,10 +164,10 @@ export default function MatchScreen() {
                 size={40}
               />
               <View className="ml-3">
-                <Text className="text-sm font-medium text-zinc-900">
+                <Text className="text-sm font-medium text-body">
                   {data.pendingConfirmation.member.name}
                 </Text>
-                <Text className="text-xs text-zinc-500">Did you meet with them?</Text>
+                <Text className="text-xs text-faint">Did you meet with them?</Text>
               </View>
             </View>
             <View className="flex-row gap-3">
@@ -183,7 +183,7 @@ export default function MatchScreen() {
                 <Text className="text-sm font-semibold text-white">Yes, we met</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="flex-1 items-center rounded-xl bg-zinc-100 py-2.5"
+                className="flex-1 items-center rounded-xl bg-chip py-2.5"
                 activeOpacity={0.7}
                 disabled={busy}
                 onPress={() => {
@@ -191,32 +191,32 @@ export default function MatchScreen() {
                   send({ round_id: data.pendingConfirmation!.round_id, confirmed_met: false });
                 }}
               >
-                <Text className="text-sm font-semibold text-zinc-600">No, we didn&apos;t</Text>
+                <Text className="text-sm font-semibold text-muted">No, we didn&apos;t</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : null}
 
         {!round ? (
-          <View className="mt-5 items-center rounded-2xl border border-black/5 bg-white p-10">
+          <View className="mt-5 items-center rounded-2xl border border-hairline bg-surface p-10">
             <Ionicons name="swap-horizontal" size={36} color="#d4d4d8" />
-            <Text className="mt-4 text-base font-semibold text-zinc-900">No round this week yet</Text>
-            <Text className="mt-1.5 text-center text-sm text-zinc-500">
+            <Text className="mt-4 text-base font-semibold text-body">No round this week yet</Text>
+            <Text className="mt-1.5 text-center text-sm text-faint">
               We&apos;ll send you an email when the next round opens.
             </Text>
           </View>
         ) : (
-          <View className="mt-5 rounded-2xl border border-black/5 bg-white p-5">
+          <View className="mt-5 rounded-2xl border border-hairline bg-surface p-5">
             <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+              <Text className="text-[10px] font-semibold uppercase tracking-wider text-faint">
                 This Week
               </Text>
-              <Text className="text-[10px] font-bold text-zinc-400">Week of {weekOf(round.week_of)}</Text>
+              <Text className="text-[10px] font-bold text-faint">Week of {weekOf(round.week_of)}</Text>
             </View>
 
             {round.status === 'open' && !data?.myResponse ? (
               <View>
-                <Text className="mb-5 text-sm leading-6 text-zinc-700">
+                <Text className="mb-5 text-sm leading-6 text-muted">
                   Ready for a 30-minute 1-on-1 with another Exposure member this week?
                 </Text>
                 <View className="flex-row gap-3">
@@ -257,11 +257,11 @@ export default function MatchScreen() {
                 <StatusBox
                   icon="close"
                   iconColor="#a1a1aa"
-                  className="border-black/10 bg-zinc-100"
+                  className="border-hairline bg-chip"
                   title="Sitting out this week"
-                  titleClass="text-zinc-700"
+                  titleClass="text-muted"
                   subtitle="No worries — you can always join next round."
-                  subtitleClass="text-zinc-500"
+                  subtitleClass="text-faint"
                 />
                 <TextLink label="Change mind — opt in" disabled={busy}
                   onPress={() => send({ round_id: round.id, opted_in: true })} />
@@ -285,14 +285,14 @@ export default function MatchScreen() {
                   iconColor={BRAND_BLUE}
                   className="border-brand-blue/30 bg-brand-blue/10"
                   title="You're in for a late match"
-                  titleClass="text-brand-blue"
+                  titleClass="text-accent-link"
                   subtitle="We'll try to pair you with someone who also missed the round."
                   subtitleClass="text-brand-blue/70"
                 />
               ) : (
                 <View className="items-center py-6">
-                  <Text className="mb-1 text-sm font-medium text-zinc-700">Missed this round?</Text>
-                  <Text className="mb-5 text-center text-xs text-zinc-500">
+                  <Text className="mb-1 text-sm font-medium text-muted">Missed this round?</Text>
+                  <Text className="mb-5 text-center text-xs text-faint">
                     Matches just went out — you can still raise your hand for a late pairing.
                   </Text>
                   <TouchableOpacity
@@ -316,7 +316,7 @@ export default function MatchScreen() {
 
             {round.status === 'closed' ? (
               <View className="items-center py-6">
-                <Text className="text-center text-sm text-zinc-500">
+                <Text className="text-center text-sm text-faint">
                   This round has closed. We&apos;ll email you when the next one opens.
                 </Text>
               </View>
@@ -325,8 +325,8 @@ export default function MatchScreen() {
         )}
 
         {data && data.matchHistory.length > 0 ? (
-          <View className="mt-4 rounded-2xl border border-black/5 bg-white p-5">
-            <Text className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-faint">
               Your Match History
             </Text>
             {data.matchHistory.map((entry) => (
@@ -338,15 +338,15 @@ export default function MatchScreen() {
               >
                 <Avatar uri={entry.partner.avatar_url} name={entry.partner.name} size={36} />
                 <View className="ml-3 flex-1">
-                  <Text className="text-sm font-medium text-zinc-900" numberOfLines={1}>
+                  <Text className="text-sm font-medium text-body" numberOfLines={1}>
                     {entry.partner.name}
                   </Text>
                   {entry.partner.bio ? (
-                    <Text className="text-xs text-zinc-500" numberOfLines={1}>
+                    <Text className="text-xs text-faint" numberOfLines={1}>
                       {entry.partner.bio}
                     </Text>
                   ) : null}
-                  <Text className="text-xs text-zinc-400">
+                  <Text className="text-xs text-faint">
                     {new Date(entry.week_of).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -367,14 +367,14 @@ export default function MatchScreen() {
         {/* Preferences. Hidden on the website's mobile width; shown here so the
             setting stays reachable. */}
         {self ? (
-          <View className="mt-4 rounded-2xl border border-black/5 bg-white p-5">
-            <Text className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+          <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5">
+            <Text className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-faint">
               Preferences
             </Text>
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
-                <Text className="text-sm font-medium text-zinc-900">Auto opt-in</Text>
-                <Text className="mt-0.5 text-[11px] leading-5 text-zinc-500">
+                <Text className="text-sm font-medium text-body">Auto opt-in</Text>
+                <Text className="mt-0.5 text-[11px] leading-5 text-faint">
                   {self.auto_opt_in
                     ? 'On — You will join every round automatically.'
                     : 'Off — you choose each week.'}
@@ -389,7 +389,7 @@ export default function MatchScreen() {
                 onPress={toggleAuto}
               >
                 <View
-                  className={`h-5 w-5 rounded-full bg-white ${self.auto_opt_in ? 'self-end' : 'self-start'}`}
+                  className={`h-5 w-5 rounded-full bg-surface ${self.auto_opt_in ? 'self-end' : 'self-start'}`}
                 />
               </TouchableOpacity>
             </View>
@@ -412,7 +412,7 @@ function PartnerBlock({
   const first = firstName(partner.name);
   return (
     <View>
-      <Text className="mb-3 text-xs text-zinc-500">
+      <Text className="mb-3 text-xs text-faint">
         You&apos;ve been matched! Schedule your 30-min call.
       </Text>
 
@@ -439,15 +439,15 @@ function PartnerBlock({
         </View>
       ) : null}
 
-      <View className="rounded-xl bg-zinc-50 p-5">
+      <View className="rounded-xl bg-surface-2 p-5">
         <TouchableOpacity className="flex-row items-center" activeOpacity={0.7} onPress={onOpenProfile}>
           <Avatar uri={partner.avatar_url} name={partner.name} size={56} />
           <View className="ml-4 flex-1">
-            <Text className="text-base font-semibold text-zinc-900">{partner.name}</Text>
+            <Text className="text-base font-semibold text-body">{partner.name}</Text>
             {partner.location ? (
               <View className="mt-0.5 flex-row items-center gap-1">
                 <Ionicons name="location-outline" size={12} color="#a1a1aa" />
-                <Text className="text-xs text-zinc-500">{partner.location}</Text>
+                <Text className="text-xs text-faint">{partner.location}</Text>
               </View>
             ) : null}
           </View>
@@ -455,14 +455,14 @@ function PartnerBlock({
 
         {partner.bio ? (
           <View className="mt-4">
-            <Text className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            <Text className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">
               Occupation
             </Text>
-            <Text className="text-sm text-zinc-800">{partner.bio}</Text>
+            <Text className="text-sm text-body">{partner.bio}</Text>
           </View>
         ) : null}
 
-        <View className="mt-4 border-t border-black/5 pt-4">
+        <View className="mt-4 border-t border-hairline pt-4">
           {partner.email ? (
             <TouchableOpacity
               className="mb-2 flex-row items-center gap-2"
@@ -470,7 +470,7 @@ function PartnerBlock({
               onPress={() => Linking.openURL(`mailto:${partner.email}`).catch(() => {})}
             >
               <Ionicons name="mail-outline" size={14} color="#a1a1aa" />
-              <Text className="flex-1 text-sm text-brand-blue" numberOfLines={1}>
+              <Text className="flex-1 text-sm text-accent-link" numberOfLines={1}>
                 {partner.email}
               </Text>
             </TouchableOpacity>
@@ -478,7 +478,7 @@ function PartnerBlock({
           {partner.phone ? (
             <View className="mb-2 flex-row items-center gap-2">
               <Ionicons name="call-outline" size={14} color="#a1a1aa" />
-              <Text className="text-sm text-zinc-800">{partner.phone}</Text>
+              <Text className="text-sm text-body">{partner.phone}</Text>
             </View>
           ) : null}
 
@@ -507,12 +507,12 @@ function ContactLink({
   const href = url.startsWith('http') ? url : `https://${url}`;
   return (
     <TouchableOpacity
-      className="flex-row items-center gap-1.5 rounded-lg bg-zinc-200 px-3 py-1.5"
+      className="flex-row items-center gap-1.5 rounded-lg bg-chip px-3 py-1.5"
       activeOpacity={0.7}
       onPress={() => Linking.openURL(href).catch(() => {})}
     >
-      <Ionicons name={icon} size={14} color="#52525b" />
-      <Text className="text-xs font-semibold text-zinc-600">{label}</Text>
+      <Ionicons name={icon} size={14} color="#8a8a94" />
+      <Text className="text-xs font-semibold text-muted">{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -530,8 +530,8 @@ function ActionButton({
   disabled?: boolean;
   tone: 'primary' | 'muted';
 }) {
-  const box = tone === 'primary' ? 'bg-brand-blue' : 'bg-zinc-100';
-  const text = tone === 'primary' ? 'text-white' : 'text-zinc-600';
+  const box = tone === 'primary' ? 'bg-brand-blue' : 'bg-chip';
+  const text = tone === 'primary' ? 'text-white' : 'text-muted';
   return (
     <TouchableOpacity
       className={`flex-1 items-center rounded-xl py-3 ${box} ${busy || disabled ? 'opacity-50' : ''}`}
@@ -587,7 +587,7 @@ function TextLink({
 }) {
   return (
     <TouchableOpacity className="mt-3" activeOpacity={0.7} disabled={disabled} onPress={onPress}>
-      <Text className="text-xs text-zinc-500">{label}</Text>
+      <Text className="text-xs text-faint">{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -596,7 +596,7 @@ function MetBadge({ label, tone }: { label: string; tone: 'met' | 'missed' }) {
   const style =
     tone === 'met'
       ? { box: 'border border-emerald-500/20 bg-emerald-500/10', text: 'text-emerald-600' }
-      : { box: 'bg-zinc-100', text: 'text-zinc-500' };
+      : { box: 'bg-chip', text: 'text-faint' };
   return (
     <View className={`rounded-full px-2 py-0.5 ${style.box}`}>
       <Text className={`text-[10px] font-semibold ${style.text}`}>{label}</Text>

@@ -34,14 +34,14 @@ export function PrimaryButton({ label, onPress, disabled, busy }: Props) {
 export function SecondaryButton({ label, onPress, disabled, busy }: Props) {
   return (
     <TouchableOpacity
-      className={`mt-3 items-center rounded-full border border-black/10 py-3.5 ${
+      className={`mt-3 items-center rounded-full border border-hairline py-3.5 ${
         disabled || busy ? 'opacity-50' : ''
       }`}
       activeOpacity={0.7}
       onPress={onPress}
       disabled={disabled || busy}
     >
-      <Text className="text-[14px] font-semibold text-zinc-700">{label}</Text>
+      <Text className="text-[14px] font-semibold text-muted">{label}</Text>
     </TouchableOpacity>
   );
 }

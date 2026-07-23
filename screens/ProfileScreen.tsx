@@ -20,6 +20,8 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useColorScheme } from 'nativewind';
+import { Ionicons } from '@expo/vector-icons';
 import {
   getJobNotifications,
   getProfile,
@@ -28,7 +30,8 @@ import {
   uploadAvatar,
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { BRAND_BLUE, BRAND_CREAM } from '../lib/theme';
+import { BRAND_BLUE, BRAND_CREAM, loadThemePref, saveThemePref } from '../lib/theme';
+import type { ThemePref } from '../lib/theme';
 import type { JobNotificationSettings, ProfilePatch, SelfMember } from '../types';
 import Avatar from '../components/Avatar';
 import { ErrorNotice, Loading } from '../components/Feedback';
@@ -206,7 +209,7 @@ export default function ProfileScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-brand-cream"
+      className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -225,11 +228,11 @@ export default function ProfileScreen() {
             {uploading ? (
               <ActivityIndicator color={BRAND_BLUE} />
             ) : (
-              <Text className="text-[13px] font-semibold text-brand-blue">Change photo</Text>
+              <Text className="text-[13px] font-semibold text-accent-link">Change photo</Text>
             )}
           </TouchableOpacity>
           {member?.email ? (
-            <Text className="mt-2 text-[13px] text-zinc-500">{member.email}</Text>
+            <Text className="mt-2 text-[13px] text-faint">{member.email}</Text>
           ) : null}
         </View>
 
@@ -237,11 +240,11 @@ export default function ProfileScreen() {
 
         {FIELDS.map((field) => (
           <View key={String(field.key)}>
-            <Text className="mb-1.5 mt-4 text-[13px] font-semibold text-zinc-600">
+            <Text className="mb-1.5 mt-4 text-[13px] font-semibold text-muted">
               {field.label}
             </Text>
             <TextInput
-              className={`rounded-xl border border-black/10 bg-white px-3.5 py-3 text-[15px] text-zinc-900 ${
+              className={`rounded-xl border border-hairline bg-surface px-3.5 py-3 text-[15px] text-body ${
                 field.multiline ? 'h-24' : ''
               }`}
               value={form[field.key] ?? ''}
@@ -259,7 +262,12 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
+        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
+          Appearance
+        </Text>
+        <ThemeSelector />
+
+        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Weekly match
         </Text>
         <Row
@@ -270,7 +278,7 @@ export default function ProfileScreen() {
           disabled={saving}
         />
 
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
+        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Job board emails
         </Text>
         <Row
@@ -305,6 +313,60 @@ export default function ProfileScreen() {
   );
 }
 
+// Light / Dark / System, persisted to storage. Changing it calls NativeWind's
+// setColorScheme, which flips the whole app immediately (all the semantic
+// color tokens re-resolve). 'system' hands control back to the phone. Default
+// is dark; see lib/theme.ts and App.tsx.
+const THEME_OPTIONS: { key: ThemePref; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'light', label: 'Light', icon: 'sunny-outline' },
+  { key: 'dark', label: 'Dark', icon: 'moon-outline' },
+  { key: 'system', label: 'System', icon: 'phone-portrait-outline' },
+];
+
+function ThemeSelector() {
+  const { setColorScheme } = useColorScheme();
+  const [pref, setPref] = useState<ThemePref>('dark');
+
+  useEffect(() => {
+    loadThemePref().then(setPref);
+  }, []);
+
+  function choose(next: ThemePref) {
+    setPref(next);
+    setColorScheme(next);
+    saveThemePref(next);
+  }
+
+  return (
+    <View className="flex-row gap-2 rounded-2xl border border-hairline bg-surface p-1.5">
+      {THEME_OPTIONS.map((option) => {
+        const active = pref === option.key;
+        return (
+          <TouchableOpacity
+            key={option.key}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-2.5 ${
+              active ? 'bg-brand-blue' : ''
+            }`}
+            activeOpacity={0.8}
+            onPress={() => choose(option.key)}
+          >
+            <Ionicons
+              name={option.icon}
+              size={15}
+              color={active ? BRAND_CREAM : '#a1a1aa'}
+            />
+            <Text
+              className={`text-[13px] font-semibold ${active ? 'text-brand-cream' : 'text-muted'}`}
+            >
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 // A labelled switch row. The `auto_opt_in` one saves with the form; the
 // notification ones save on toggle — hence the shared shape but separate
 // handlers above.
@@ -322,10 +384,10 @@ function Row({
   disabled?: boolean;
 }) {
   return (
-    <View className="mb-2 flex-row items-center rounded-xl border border-black/5 bg-white px-3.5 py-3">
+    <View className="mb-2 flex-row items-center rounded-xl border border-hairline bg-surface px-3.5 py-3">
       <View className="flex-1 pr-3">
-        <Text className="text-[15px] text-zinc-900">{label}</Text>
-        {hint ? <Text className="mt-0.5 text-[12px] text-zinc-500">{hint}</Text> : null}
+        <Text className="text-[15px] text-body">{label}</Text>
+        {hint ? <Text className="mt-0.5 text-[12px] text-faint">{hint}</Text> : null}
       </View>
       <Switch
         value={value}

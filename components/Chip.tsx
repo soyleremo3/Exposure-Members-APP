@@ -9,7 +9,7 @@ type Props = {
 };
 
 const TONES = {
-  soft: { box: 'bg-brand-blue/10', text: 'text-brand-blue' },
+  soft: { box: 'bg-brand-blue/10', text: 'text-accent-link' },
   solid: { box: 'bg-brand-blue', text: 'text-brand-cream' },
   warn: { box: 'bg-amber-100', text: 'text-amber-800' },
 } as const;
