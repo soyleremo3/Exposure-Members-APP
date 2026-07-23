@@ -12,10 +12,12 @@
 //     `images[]`, and an older schema used image_url/attendee_count/is_past.
 //   • newsletter `publish_date` is a UNIX timestamp in SECONDS (× 1000).
 //   • the Subscribe URL isn't in the API — it's derived from the newest post.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Dimensions,
   FlatList,
   Linking,
+  Modal,
   RefreshControl,
   ScrollView,
   Text,
@@ -23,10 +25,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { ImageStyle, StyleProp } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { ApiError, getEvents, getLinks, getNewsletter, getYoutube, readableError } from '../lib/api';
+import { toImageList } from '../lib/format';
+import { resizedImage } from '../lib/images';
 import { BRAND_BLUE } from '../lib/theme';
 import type { EventRecord, LinkGroup, NewsletterPost, SharedLink, YoutubeVideo } from '../types';
 import { Empty, ErrorNotice, Loading } from '../components/Feedback';
@@ -170,6 +175,9 @@ function EventsSection() {
     () => getEvents().then((r) => r.events ?? []),
     [] as EventRecord[],
   );
+  // One gallery for the whole list, opened by any card — mirrors the website's
+  // single lightbox.
+  const [gallery, setGallery] = useState<{ images: string[]; index: number } | null>(null);
 
   if (loading) return <Loading />;
 
@@ -180,28 +188,46 @@ function EventsSection() {
   }
 
   return (
-    <FlatList
-      data={data}
-      keyExtractor={(item, index) => String(item.id ?? index)}
-      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
-      }
-      ListHeaderComponent={
-        <>
-          <SectionHeader title="Events" subtitle="Past and upcoming Exposure gatherings." />
-          {error ? <ErrorNotice message={error} onRetry={load} /> : null}
-        </>
-      }
-      ListEmptyComponent={error ? null : <Empty message="No events yet." />}
-      renderItem={({ item }) => <EventCard event={item} />}
-    />
+    <>
+      <FlatList
+        data={data}
+        keyExtractor={(item, index) => String(item.id ?? index)}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
+        }
+        ListHeaderComponent={
+          <>
+            <SectionHeader title="Events" subtitle="Past and upcoming Exposure gatherings." />
+            {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+          </>
+        }
+        ListEmptyComponent={error ? null : <Empty message="No events yet." />}
+        renderItem={({ item }) => (
+          <EventCard event={item} onOpenPhotos={(images, index) => setGallery({ images, index })} />
+        )}
+      />
+      {gallery ? (
+        <ImageGallery
+          images={gallery.images}
+          index={gallery.index}
+          onClose={() => setGallery(null)}
+        />
+      ) : null}
+    </>
   );
 }
 
-function EventCard({ event }: { event: EventRecord }) {
-  // Normalize the two possible schemas (see EventRecord in types.ts).
-  const images = event.images ?? (event.image_url ? [event.image_url] : []);
+function EventCard({
+  event,
+  onOpenPhotos,
+}: {
+  event: EventRecord;
+  onOpenPhotos: (images: string[], index: number) => void;
+}) {
+  // Normalize the two possible schemas (see EventRecord in types.ts) and the
+  // occasional stringified array (see toImageList).
+  const images = toImageList(event.images ?? event.image_url);
   const type = /online/i.test(String(event.type)) ? 'Online' : 'In-person';
   const attendees = event.attendees ?? event.attendee_count ?? 0;
   const upcoming = event.upcoming ?? (event.is_past != null ? !event.is_past : false);
@@ -213,16 +239,21 @@ function EventCard({ event }: { event: EventRecord }) {
       }`}
     >
       {images.length > 0 ? (
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => Linking.openURL(images[0]).catch(() => {})}
-        >
-          <Image
-            source={{ uri: images[0] }}
-            style={{ width: '100%', height: 160 }}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-          />
+        <TouchableOpacity activeOpacity={0.9} onPress={() => onOpenPhotos(images, 0)}>
+          <View>
+            <RemoteImage
+              url={images[0]}
+              width={800}
+              style={{ width: '100%', height: 176 }}
+            />
+            {/* Photo-count pill, bottom-right, like the website's grid badge. */}
+            {images.length > 1 ? (
+              <View className="absolute bottom-2 right-2 flex-row items-center gap-1 rounded-full bg-black/60 px-2 py-1">
+                <Ionicons name="images-outline" size={11} color="#fff" />
+                <Text className="text-[10px] font-semibold text-white">{images.length}</Text>
+              </View>
+            ) : null}
+          </View>
         </TouchableOpacity>
       ) : null}
 
@@ -272,6 +303,102 @@ function EventCard({ event }: { event: EventRecord }) {
         </View>
       </View>
     </View>
+  );
+}
+
+// expo-image with a Supabase resize + graceful fallback. We first try a small
+// resized variant (fast); if the project has image transforms disabled and the
+// render URL fails, we retry once with the original URL. memory-disk caching
+// means a photo the gallery already loaded is instant on the card and vice
+// versa.
+function RemoteImage({
+  url,
+  width,
+  style,
+  contentFit = 'cover',
+}: {
+  url: string;
+  width: number;
+  style: StyleProp<ImageStyle>;
+  contentFit?: 'cover' | 'contain';
+}) {
+  const [useOriginal, setUseOriginal] = useState(false);
+  const uri = useOriginal ? url : resizedImage(url, width);
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      contentFit={contentFit}
+      cachePolicy="memory-disk"
+      transition={150}
+      onError={() => {
+        if (!useOriginal) setUseOriginal(true);
+      }}
+    />
+  );
+}
+
+// Full-screen swipeable viewer for an event's photos. Paging FlatList on a
+// black backdrop, a close button, and a "2 / 4" counter — the mobile take on
+// the website's lightbox.
+function ImageGallery({
+  images,
+  index,
+  onClose,
+}: {
+  images: string[];
+  index: number;
+  onClose: () => void;
+}) {
+  const { width, height } = Dimensions.get('window');
+  const [current, setCurrent] = useState(index);
+  const listRef = useRef<FlatList<string>>(null);
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View className="flex-1 bg-black">
+        <FlatList
+          ref={listRef}
+          data={images}
+          keyExtractor={(item, i) => `${i}-${item}`}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          initialScrollIndex={index}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          onMomentumScrollEnd={(e) =>
+            setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))
+          }
+          renderItem={({ item }) => (
+            <View style={{ width, height }} className="items-center justify-center">
+              <RemoteImage
+                url={item}
+                width={1080}
+                contentFit="contain"
+                style={{ width, height }}
+              />
+            </View>
+          )}
+        />
+
+        <SafeAreaView edges={['top']} className="absolute left-0 right-0 top-0">
+          <View className="flex-row items-center justify-between px-4 py-2">
+            <View className="rounded-full bg-white/15 px-3 py-1">
+              <Text className="text-xs font-semibold text-white">
+                {current + 1} / {images.length}
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="h-9 w-9 items-center justify-center rounded-full bg-white/15"
+              activeOpacity={0.7}
+              onPress={onClose}
+            >
+              <Ionicons name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    </Modal>
   );
 }
 

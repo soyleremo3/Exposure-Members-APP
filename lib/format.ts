@@ -15,6 +15,27 @@ export function toTypeList(raw: unknown): string[] {
   return [];
 }
 
+// Event photos come back as a real array from the API, but this backend has a
+// habit of sending list-ish columns as strings (see toTypeList). Be defensive:
+// accept an array, a JSON-encoded array, or a comma-separated string, so a
+// shape change degrades to an empty gallery instead of a crash.
+export function toImageList(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((s) => String(s).trim()).filter(Boolean);
+  if (typeof raw === 'string' && raw.trim()) {
+    const s = raw.trim();
+    if (s.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map((x) => String(x).trim()).filter(Boolean);
+      } catch {
+        // not JSON after all — fall through to comma split
+      }
+    }
+    return s.split(',').map((x) => x.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 // Up to two initials for the avatar placeholder. Returns '?' for empty names.
 export function initialsOf(name: string | null | undefined): string {
   const initials = (name ?? '')
