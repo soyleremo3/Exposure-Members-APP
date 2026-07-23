@@ -52,6 +52,26 @@ The app then verifies the code with Supabase directly (`supabase.auth.verifyOtp(
 
 ## Profile
 
+### ⚠️ Four columns don't mean what they're named
+
+The website reuses four member columns for something completely different from
+what the column name suggests. This is not a guess — it's how the site itself
+reads and writes them (`app/members/dashboard/DashboardClient.tsx` in
+`github.com/onurrcelik/Exposure`, verified 2026-07-23):
+
+| Column | What it actually holds | Evidence |
+|---|---|---|
+| `instagram` | **Educational Background** — e.g. "BSc Computer Science, Stanford" | form label at `:2049`, onboarding maps `instagram: form.education` |
+| `twitter` | **Area of Interest** — e.g. "AI, GTM, Vibe Coding" | form label at `:2048` |
+| `bio` | **Current Occupation** — e.g. "Building a SaaS product" | form label at `:2046` |
+| `website` | **Refer a Friend payload** — a JSON *string* holding an array of referrals | written at `:886`, read back at `:736` |
+
+None of these four are social links or URLs. Never pass `instagram`, `twitter`
+or `website` to something that opens a URL, and never show `website` as an
+editable text field — a member typing into it destroys their referrals.
+
+Only `linkedin`, `github` and `occupation_link` ("Relevant Link") are real URLs.
+
 ### GET `/api/members/profile` — your own profile
 Response: `200 { "member": { ... } }` with fields:
 `id, email, name, bio, avatar_url, member_types, linkedin, location, instagram, twitter, website, github, favorite_resource, occupation_link, phone, member_category, subscription_status, is_past_member, onboarding_complete, auto_opt_in, batch, created_at`
@@ -70,6 +90,25 @@ Constraints: JPG/PNG/WEBP only, max 5 MB (the server also checks the real file b
 
 Response: `200 { "url": "https://..." }` — the new avatar URL (also saved to your profile automatically).
 
+### Refer a Friend — there is no referral endpoint
+
+The "Refer a Friend" screen has **no route of its own**. The website stores
+referrals inside the `website` profile column as a JSON string:
+
+Read: `GET /api/members/profile` → `JSON.parse(member.website)`, expecting an
+array. If it isn't valid JSON, the site silently ignores it and shows an empty
+form — do the same.
+
+Write: `PATCH /api/members/profile` with
+
+```json
+{ "website": "[{\"name\":\"…\",\"email\":\"…\",\"linkedin\":\"…\",\"notes\":\"…\"}]" }
+```
+
+Exactly two referrals are collected, and only entries with a non-empty `name`
+are saved. Note the second field is keyed `email` but its input is labelled
+**"Phone number"** on the site — a quirk in the website, mirrored as-is.
+
 ---
 
 ## Directory
@@ -78,7 +117,20 @@ Response: `200 { "url": "https://..." }` — the new avatar URL (also saved to y
 Response: `200 { "members": [ ... ] }`, each member:
 `id, name, bio, avatar_url, member_types, linkedin, location, instagram, twitter, github, favorite_resource, occupation_link, batch, is_past_member, created_at`
 
-Notes: no email/phone/website here (privacy). Only onboarded members with a name appear. **Past members ARE included** (`is_past_member: true`) — hide them in the UI unless you're building an alumni view. No query params; filter/search client-side.
+Notes: no email/phone/website here (privacy). Only onboarded members with a name appear. No query params; filter/search client-side.
+
+`member_types` arrives as a **comma-separated string**, not an array — read it
+through `toTypeList()` (see the note in `types.ts`).
+
+**Past members ARE included** (`is_past_member: true`). The website does not
+hide them: it lists current members first, then a separate "Past Members"
+heading with the count and the same cards at 60% opacity and a "Past" badge.
+The member count shown above the grid counts **current members only**.
+
+`batch` renders as a cohort badge in the form `E{batch}` — e.g. `batch: 2` → `E2`.
+
+`favorite_resource` is shown prefixed with `✦`, italic, and is **not**
+clickable even when it contains a URL.
 
 ---
 
@@ -164,6 +216,28 @@ Response: `200` with:
 Request: `{ "round_id": "<uuid>", "opted_in"?: boolean, "confirmed_met"?: boolean }`
 Response: `200 { "ok": true }`. Errors: `400` invalid/missing round_id or non-boolean values.
 
+### How the website derives the screen states
+
+There is no state field — the UI is computed from the three values above:
+
+| Shown when | UI |
+|---|---|
+| `currentRound` is null | nothing to join yet |
+| `status !== 'matched'`, not opted in | opt-in prompt |
+| `status !== 'matched'`, opted in | "you're in, waiting for pairing" |
+| `status === 'matched'` and `myCurrentMatch` set | partner card, `isOpener` decides who messages first |
+| `status === 'matched'` and `myCurrentMatch` **null** | **"Missed this round?"** + a **"Late opt-in"** button |
+
+"Late opt-in" is not a separate endpoint — it is the ordinary
+`POST /match { round_id, opted_in: true }`. The site tracks the click in local
+state only, so a page reload shows the button again.
+
+`week_of` is rendered without a year: `toLocaleDateString('en-US', { month: 'short', day: 'numeric' })` → "Jul 20".
+
+**Auto opt-in** is `PATCH /api/members/profile { auto_opt_in }`. Copy on the
+site: on → `"On — You will join every round automatically."`, off →
+`"Off — you choose each week."` (the capital Y is the site's own typo).
+
 ---
 
 ## Content
@@ -172,9 +246,17 @@ Response: `200 { "ok": true }`. Errors: `400` invalid/missing round_id or non-bo
 Response: `200 { "groups": [ ... ] }`, each group:
 `{ id, date_from, date_to, links: [{ url, type, label, title, notes, description? }] }`
 
+Link `type` values seen on the site, each with its own icon:
+`repo` · `youtube` · `linkedin` · `twitter` · `instagram` · `paper` · `article`,
+and anything else falls back to a generic globe icon.
+
 ### GET `/api/members/newsletter` — newsletter posts
 Response: `200 { "posts": [{ id, title, subtitle, publish_date, web_url, thumbnail_url }] }`
 Errors: `500` (not configured), `502` (upstream failed).
+
+There is no "subscribe URL" field. The site derives it from the newest post:
+`new URL(posts[0].web_url).origin + '/subscribe'`, and hides the Subscribe
+button entirely when there are no posts.
 
 ### GET `/api/members/youtube` — channel videos
 Response: `200 { "longForm": [...], "shorts": [...] }`, each video:
@@ -187,6 +269,11 @@ Response: `200 { "graphs": [ ... ] }` — each graph has `people[]`, `edges[]`, 
 ---
 
 ## Community Brain (AI search over community knowledge)
+
+> **Not launched yet.** The website gates this section behind a hard-coded
+> allowlist of two email addresses; everyone else sees a blurred "Coming Soon"
+> panel. The routes below are real but there's no point wiring them up until
+> the allowlist goes away — the app shows the same "Coming Soon" message.
 
 These routes proxy an upstream AI service; response bodies come from that service mostly unmodified.
 

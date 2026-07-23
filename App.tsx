@@ -70,7 +70,15 @@ function Tabs() {
         ),
       })}
     >
-      <Tab.Screen name="Directory" component={DirectoryScreen} />
+      {/* Directory draws its own "Member Directory" heading, the way the
+          website does, so the navigator header would just repeat it. Other
+          tabs still use the navigator header until they get the same
+          treatment. */}
+      <Tab.Screen
+        name="Directory"
+        component={DirectoryScreen}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen name="Jobs" component={JobBoardScreen} options={{ title: 'Job Board' }} />
       <Tab.Screen name="Match" component={MatchScreen} options={{ title: 'Weekly Match' }} />
       <Tab.Screen name="Discover" component={DiscoverScreen} />

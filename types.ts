@@ -14,19 +14,29 @@
 // previous project — a string has `.length` but no `.join`. The type below
 // is deliberately loose; always read it through `toTypeList()` in
 // lib/format.ts, never touch it directly.
+//
+// NOTE on `instagram` / `twitter` / `bio`: these three columns are NOT what
+// their names say. The website stores education, interests and occupation in
+// them (see the table at the top of API.md's Profile section). They are plain
+// text — never hand them to Linking.openURL. The only real URLs on a member
+// are `linkedin`, `github` and `occupation_link`.
 export type Member = {
   id: string;
   name: string;
+  // "Current Occupation" on the site — e.g. "Building a SaaS product".
   bio: string;
   avatar_url?: string | null;
   member_types?: string | string[] | null;
   linkedin?: string | null;
   location?: string | null;
+  // "Area of Interest" — plain text, not a Twitter handle.
   twitter?: string | null;
+  // "Educational Background" — plain text, not an Instagram handle.
   instagram?: string | null;
   github?: string | null;
   favorite_resource?: string | null;
   occupation_link?: string | null;
+  // Cohort number. Rendered as `E{batch}` — batch 2 shows as "E2".
   batch?: number | null;
   is_past_member?: boolean;
   created_at: string;
@@ -37,6 +47,9 @@ export type Member = {
 export type SelfMember = Member & {
   email: string;
   phone?: string | null;
+  // NOT a website. The site stores the Refer a Friend form here as a JSON
+  // string (see API.md → "Refer a Friend — there is no referral endpoint").
+  // Read it with parseReferrals(); never show it as an editable text field.
   website?: string | null;
   member_category?: string | null;
   subscription_status: string;
