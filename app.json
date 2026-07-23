@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Exposure Members",
+    "slug": "Exposure_Members_APP",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFCF6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.exposureai.members"
+    },
+    "android": {
+      "package": "org.exposureai.members",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFCF6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Exposure needs access to your photos so you can set a profile picture."
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}
