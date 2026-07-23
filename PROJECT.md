@@ -130,6 +130,25 @@ Proje dokümantasyonu Türkçe olsa da **her git commit mesajı İngilizce** yaz
 
 API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-board` (liste). `JobDetailScreen` listeyi çekip `id`'ye göre buluyor. Yan faydası: başvuru/kapatma sonrası `viewer_applied`, `status` gibi bayraklar hep taze geliyor.
 
+### 4.10 Web sitesi 3 profil kolonunu başka anlamda kullanıyor — **doğrulandı (2026-07-23)**
+
+`onurrcelik/Exposure` reposu (web sitesinin kaynağı, kullanıcı erişim verdi) incelendiğinde `DashboardClient.tsx`'te net oldu: DB'deki üç sosyal kolon, form etiketlerinde **tamamen farklı** anlamda kullanılıyor:
+
+| Kolon | Gerçek anlamı |
+|---|---|
+| `instagram` | **Educational Background** (ör. "BSc Computer Science, Stanford") |
+| `twitter` | **Area of Interest** (ör. "AI, GTM, Vibe Coding") |
+| `bio` | **Current Occupation** |
+| `website` | **Refer a Friend** verisi — JSON string olarak (§ Adım 4) |
+
+Bunlar URL değil, düz metin. Eski `MemberDetailScreen` `instagram`/`twitter`'ı sosyal link sanıp `Linking.openURL` ile açmaya çalışıyordu — **gerçek bug, düzeltildi**. Ayrıntı API.md → Profile başındaki tablo. Sadece `linkedin`, `github`, `occupation_link` gerçek URL.
+
+### 4.11 Test hesapları salt-okunur (403) — **doğrulandı (2026-07-23)**
+
+Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil.
+
+Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadOnlyError(e)` + `READ_ONLY_NOTICE`. Yazma yapan **her ekran**: `member_category === 'test'` ise üstte nötr `InfoNotice` banner'ı gösterir, mutation'daki read-only hatasını kırmızı `ErrorNotice` yerine sessizce yutar. Match'te uygulandı; Profile, Refer a Friend, Job Board'da da uygulanacak.
+
 ---
 
 ## 5. Ekran Durumu
@@ -137,14 +156,14 @@ API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-boa
 | Ekran | Dosya | Durum | Endpoint |
 |---|---|---|---|
 | Giriş | `screens/LoginScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST /api/members/auth` + Supabase `verifyOtp` |
-| Üye Rehberi | `screens/DirectoryScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET /directory` |
-| Üye Detayı | `screens/MemberDetailScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | — (route param) |
+| Üye Rehberi | `screens/DirectoryScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | `GET /directory` |
+| Üye Detayı | `screens/MemberDetailScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | — (route param) |
 | İş İlanları listesi | `screens/jobs/JobBoardScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET /job-board` |
 | İlan detayı + başvuru | `screens/jobs/JobDetailScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `PATCH`/`DELETE /job-board/[id]`, `POST`/`DELETE .../apply` |
 | İlan oluştur/düzenle | `screens/jobs/JobComposeScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST /job-board`, `PATCH /job-board/[id]` |
 | Başvuranlar | `screens/jobs/JobApplicantsScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET .../applications` |
 | Üye öner | `screens/jobs/JobReferScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST .../refer` |
-| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET`/`POST /match` |
+| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar + read-only), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (4 bölüm) | `screens/DiscoverScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET /events`, `/links`, `/newsletter`, `/youtube` |
 | Profil | `screens/ProfileScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
 | Community Brain | — | **Yapılmadı** (kapsam dışı, SSE gerekiyor) | `/brain-query*` |

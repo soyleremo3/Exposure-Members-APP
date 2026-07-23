@@ -27,6 +27,16 @@ export function ErrorNotice({ message, onRetry }: { message: string; onRetry?: (
   );
 }
 
+// Neutral, non-alarming banner — for expected states like a read-only test
+// account, where a red ErrorNotice would wrongly read as a failure.
+export function InfoNotice({ message }: { message: string }) {
+  return (
+    <View className="mb-3 rounded-xl border border-black/5 bg-zinc-100 px-4 py-3">
+      <Text className="text-[13px] text-zinc-600">{message}</Text>
+    </View>
+  );
+}
+
 export function Empty({ message }: { message: string }) {
   return (
     <View className="items-center px-8 pt-16">

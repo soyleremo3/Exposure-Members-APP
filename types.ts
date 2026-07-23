@@ -174,15 +174,25 @@ export type JobNotificationSettings = {
 export type MatchRound = {
   id: string;
   week_of: string;
-  // "matched" means partners have been assigned and myCurrentMatch is set.
+  // Known values: "open" (opt-in window), "matched" (partners assigned,
+  // myCurrentMatch is set), "closed" (round over). Kept as a string in case
+  // the backend adds more.
   status: string;
   created_at: string;
 };
 
 export type MatchMyResponse = {
-  opted_in: boolean;
+  // Can be null: the row exists but the member hasn't answered yet.
+  opted_in: boolean | null;
   confirmed_met?: boolean | null;
   [key: string]: unknown;
+};
+
+// The matched partner carries private contact fields the directory never
+// exposes — the round has "introduced" you, so email/phone come through.
+export type MatchPartner = Member & {
+  email?: string | null;
+  phone?: string | null;
 };
 
 export type PendingConfirmation = {
@@ -205,7 +215,7 @@ export type MatchHistoryEntry = {
 export type MatchData = {
   currentRound: MatchRound | null;
   myResponse: MatchMyResponse | null;
-  myCurrentMatch: Member | null;
+  myCurrentMatch: MatchPartner | null;
   // Whether YOU are the one expected to send the first message.
   isOpener: boolean | null;
   // Last round's partner you haven't confirmed meeting yet.

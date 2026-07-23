@@ -80,7 +80,14 @@ function Tabs() {
         options={{ headerShown: false }}
       />
       <Tab.Screen name="Jobs" component={JobBoardScreen} options={{ title: 'Job Board' }} />
-      <Tab.Screen name="Match" component={MatchScreen} options={{ title: 'Weekly Match' }} />
+      {/* Match draws its own "1-on-1 Match" heading, like the website, so the
+          navigator header is off — but the tab keeps the "Weekly Match" label
+          (KARAR 2) that the header title used to provide. */}
+      <Tab.Screen
+        name="Match"
+        component={MatchScreen}
+        options={{ headerShown: false, tabBarLabel: 'Weekly Match' }}
+      />
       <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>

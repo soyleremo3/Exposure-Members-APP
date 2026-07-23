@@ -21,6 +21,16 @@ Server-side rules (you can't bypass these from the app):
 - The token must belong to an email that exists in the members table. Past members (`is_past_member = true`) are rejected → **401**.
 - Most routes also require `onboarding_complete = true`; `/api/members/events` additionally requires `subscription_status = 'active'`.
 - A **401** response means "not logged in / no longer a member" — the app reacts by signing out.
+- **Read-only test accounts.** An account whose `member_category` is `'test'`
+  is a mobile-app tester: the backend (`proxy.ts`) lets it GET anything but
+  returns **403 `{ "error": "Test accounts are read-only" }`** for *every*
+  non-GET to `/api/members/*` — profile edits, avatar upload, match opt-in,
+  job posts/applications/referrals, notification settings, everything. This is
+  not a failure; it's the whole point of the test account. `lib/api.ts` flags
+  it as `ApiError.readOnly` (`isReadOnlyError(e)`), and screens show the
+  neutral `READ_ONLY_NOTICE` banner instead of a red error, mirroring the
+  website (which silently ignores the 403). Detect the account up front with
+  `member_category === 'test'` from `GET /profile`.
 
 ## Common error responses
 
@@ -28,6 +38,7 @@ Server-side rules (you can't bypass these from the app):
 |---|---|---|
 | 400 | Bad input (missing/too-long field) | `{ "error": "<message>" }` |
 | 401 | Unauthorized (bad/expired token, past member, not onboarded) | `{ "error": "Unauthorized" }` |
+| 403 | Read-only test account tried to write (see below) | `{ "error": "Test accounts are read-only" }` |
 | 404 | Thing doesn't exist (or isn't yours) | `{ "error": "<message>" }` |
 | 409 | Conflict — e.g. applying twice to the same job, post already closed | `{ "error": "<message>" }` |
 | 429 | Rate limited — too many requests, wait and retry | `{ "error": "<message>" }` |
