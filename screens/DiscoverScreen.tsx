@@ -1,48 +1,66 @@
 // Everything the community publishes, behind one tab: events, shared links,
-// the newsletter, and YouTube.
+// the newsletter ("Overexposed"), and YouTube.
 //
-// Four small read-only lists don't each deserve a tab of their own, so they
-// share this screen with a segmented control. Each section fetches the first
-// time it's opened and then keeps what it has — switching back and forth
-// shouldn't re-hit the API.
-import { useCallback, useEffect, useState } from 'react';
+// These read-only lists don't each deserve a tab, so they share this screen
+// with a horizontally scrollable segmented control (kept scrollable because
+// more sections — Refer a Friend, Community Brain — land here in later steps).
+// Each section fetches the first time it's opened and then keeps what it has.
+//
+// Every section mirrors the website's header (title + subtitle + optional badge
+// + optional action) and card layout. Field quirks worth knowing:
+//   • events are raw table rows; `type` is 'In-person'/'Online', photos live in
+//     `images[]`, and an older schema used image_url/attendee_count/is_past.
+//   • newsletter `publish_date` is a UNIX timestamp in SECONDS (× 1000).
+//   • the Subscribe URL isn't in the API — it's derived from the newest post.
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Linking,
   RefreshControl,
+  ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { ApiError, getEvents, getLinks, getNewsletter, getYoutube, readableError } from '../lib/api';
-import { formatDate } from '../lib/format';
 import { BRAND_BLUE } from '../lib/theme';
-import type { EventRecord, LinkGroup, NewsletterPost, YoutubeVideo } from '../types';
-import Chip from '../components/Chip';
+import type { EventRecord, LinkGroup, NewsletterPost, SharedLink, YoutubeVideo } from '../types';
 import { Empty, ErrorNotice, Loading } from '../components/Feedback';
+
+const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/channel/UC3HbxGtKcJOEh3y46ze3Buw';
 
 type Section = 'events' | 'links' | 'newsletter' | 'youtube';
 
 const SECTIONS: { key: Section; label: string }[] = [
   { key: 'events', label: 'Events' },
   { key: 'links', label: 'Links' },
-  { key: 'newsletter', label: 'Newsletter' },
-  { key: 'youtube', label: 'Videos' },
+  { key: 'newsletter', label: 'Overexposed' },
+  { key: 'youtube', label: 'YouTube' },
 ];
 
 export default function DiscoverScreen() {
   const [section, setSection] = useState<Section>('events');
 
   return (
-    <View className="flex-1 bg-brand-cream">
-      <View className="flex-row gap-2 px-3 pb-1 pt-2">
+    <SafeAreaView className="flex-1 bg-brand-cream" edges={['top']}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="max-h-14 flex-grow-0"
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}
+      >
         {SECTIONS.map((s) => {
           const active = section === s.key;
           return (
             <TouchableOpacity
               key={s.key}
-              className={`rounded-full px-3 py-2 ${active ? 'bg-brand-blue' : 'bg-brand-blue/10'}`}
+              className={`self-start rounded-full px-4 py-2 ${
+                active ? 'bg-brand-blue' : 'bg-brand-blue/10'
+              }`}
               activeOpacity={0.8}
               onPress={() => setSection(s.key)}
             >
@@ -56,25 +74,28 @@ export default function DiscoverScreen() {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
-      {section === 'events' ? <EventsSection /> : null}
-      {section === 'links' ? <LinksSection /> : null}
-      {section === 'newsletter' ? <NewsletterSection /> : null}
-      {section === 'youtube' ? <YoutubeSection /> : null}
-    </View>
+      <View className="flex-1">
+        {section === 'events' ? <EventsSection /> : null}
+        {section === 'links' ? <LinksSection /> : null}
+        {section === 'newsletter' ? <NewsletterSection /> : null}
+        {section === 'youtube' ? <YoutubeSection /> : null}
+      </View>
+    </SafeAreaView>
   );
 }
 
-// Shared loading/refresh plumbing — every section below does the same three
-// things (load once, pull to refresh, show an error strip).
+// ------------------------------------------------------------------ shared
+
+// Load once, pull to refresh, show an error strip — every section does this.
 function useSection<T>(fetcher: () => Promise<T>, empty: T) {
   const [data, setData] = useState<T>(empty);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  // Set when the failure is "you need an active membership" rather than a
-  // real error — the events endpoint is the only one that does this.
+  // Set when the failure is "you need an active membership" rather than a real
+  // error — the events endpoint is the only one that does this.
   const [needsMembership, setNeedsMembership] = useState(false);
 
   const load = useCallback(async () => {
@@ -103,14 +124,46 @@ function useSection<T>(fetcher: () => Promise<T>, empty: T) {
   return { data, loading, refreshing, error, needsMembership, load, onRefresh };
 }
 
-// Pull the first non-empty string out of a list of candidate fields.
-function pick(event: EventRecord, keys: string[]): string {
-  for (const key of keys) {
-    const value = event[key];
-    if (typeof value === 'string' && value.trim()) return value;
-  }
-  return '';
+// Section title block: heading + subtitle, plus optional inline badge and a
+// right-aligned action (Subscribe buttons).
+function SectionHeader({
+  title,
+  subtitle,
+  badge,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  badge?: { label: string; className: string };
+  action?: React.ReactNode;
+}) {
+  return (
+    <View className="mb-4 flex-row items-start justify-between gap-3">
+      <View className="flex-1">
+        <View className="flex-row items-center gap-2">
+          <Text className="text-xl font-bold text-zinc-900">{title}</Text>
+          {badge ? (
+            <View className={`rounded-full px-2 py-0.5 ${badge.className}`}>
+              <Text className="text-[10px] font-bold uppercase tracking-wider">{badge.label}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text className="mt-1 text-sm text-zinc-500">{subtitle}</Text>
+      </View>
+      {action}
+    </View>
+  );
 }
+
+// "3 June 2026" — used by both events and the newsletter.
+function longDate(raw: string | number | null | undefined): string {
+  if (raw == null || raw === '') return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ------------------------------------------------------------------- events
 
 function EventsSection() {
   const { data, loading, refreshing, error, needsMembership, load, onRefresh } = useSection(
@@ -120,68 +173,139 @@ function EventsSection() {
 
   if (loading) return <Loading />;
 
-  // Events is the one endpoint gated on an active membership. lib/api.ts
-  // has already checked that the session itself is fine, so this is a
-  // message, not a reason to throw the member out of the app.
   if (needsMembership) {
-    return <Empty message="Events are open to members with an active membership. Manage yours on exposureai.org." />;
+    return (
+      <Empty message="Events are open to members with an active membership. Manage yours on exposureai.org." />
+    );
   }
 
   return (
     <FlatList
       data={data}
-      // Events may lack an id — fall back to the list index.
       keyExtractor={(item, index) => String(item.id ?? index)}
-      contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
       }
-      ListHeaderComponent={error ? <ErrorNotice message={error} onRetry={load} /> : null}
-      ListEmptyComponent={
-        error ? null : <Empty message="No events right now — check back soon." />
+      ListHeaderComponent={
+        <>
+          <SectionHeader title="Events" subtitle="Past and upcoming Exposure gatherings." />
+          {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+        </>
       }
-      renderItem={({ item }) => {
-        // The events table is fed from an external calendar and its columns
-        // change, so look under every plausible field name and skip the rest.
-        const title = pick(item, ['title', 'name']) || 'Untitled event';
-        const date = pick(item, ['date', 'start_time', 'starts_at', 'event_date']);
-        const location = pick(item, ['location', 'venue', 'place']);
-        const url = pick(item, ['url', 'link', 'event_url']);
-        const description = pick(item, ['description', 'details']);
-
-        const card = (
-          <View className="mb-2.5 rounded-2xl border border-black/5 bg-white p-4">
-            <Text className="text-[16px] font-semibold text-zinc-900">{title}</Text>
-            {date ? (
-              <Text className="mt-1 text-[13px] font-semibold text-brand-blue">
-                {formatDate(date)}
-              </Text>
-            ) : null}
-            {location ? <Text className="mt-0.5 text-[13px] text-zinc-500">{location}</Text> : null}
-            {description ? (
-              <Text className="mt-1.5 text-[14px] leading-5 text-zinc-600" numberOfLines={3}>
-                {description}
-              </Text>
-            ) : null}
-            {url ? (
-              <Text className="mt-2 text-[13px] font-semibold text-brand-blue">
-                Open event page →
-              </Text>
-            ) : null}
-          </View>
-        );
-
-        // Only make the card tappable when there is actually a link.
-        return url ? (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => Linking.openURL(url).catch(() => {})}>
-            {card}
-          </TouchableOpacity>
-        ) : (
-          card
-        );
-      }}
+      ListEmptyComponent={error ? null : <Empty message="No events yet." />}
+      renderItem={({ item }) => <EventCard event={item} />}
     />
   );
+}
+
+function EventCard({ event }: { event: EventRecord }) {
+  // Normalize the two possible schemas (see EventRecord in types.ts).
+  const images = event.images ?? (event.image_url ? [event.image_url] : []);
+  const type = /online/i.test(String(event.type)) ? 'Online' : 'In-person';
+  const attendees = event.attendees ?? event.attendee_count ?? 0;
+  const upcoming = event.upcoming ?? (event.is_past != null ? !event.is_past : false);
+
+  return (
+    <View
+      className={`mb-3 overflow-hidden rounded-2xl border ${
+        upcoming ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-black/5 bg-white'
+      }`}
+    >
+      {images.length > 0 ? (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => Linking.openURL(images[0]).catch(() => {})}
+        >
+          <Image
+            source={{ uri: images[0] }}
+            style={{ width: '100%', height: 160 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        </TouchableOpacity>
+      ) : null}
+
+      <View className="p-4">
+        <View className="flex-row flex-wrap items-center gap-2">
+          <Text className="text-sm font-semibold text-zinc-900">
+            {event.title || 'Untitled event'}
+          </Text>
+          {upcoming ? (
+            <View className="flex-row items-center gap-1 rounded-full bg-brand-blue px-2 py-0.5">
+              <Ionicons name="sparkles" size={9} color="#fff" />
+              <Text className="text-[10px] font-bold uppercase tracking-wider text-white">
+                Upcoming
+              </Text>
+            </View>
+          ) : null}
+          <View
+            className={`rounded-full px-2 py-0.5 ${
+              type === 'In-person' ? 'bg-emerald-500/10' : 'bg-blue-500/10'
+            }`}
+          >
+            <Text
+              className={`text-[10px] font-bold ${
+                type === 'In-person' ? 'text-emerald-600' : 'text-blue-500'
+              }`}
+            >
+              {type}
+            </Text>
+          </View>
+          {images.length > 1 ? (
+            <Text className="text-[10px] text-zinc-400">{images.length} photos</Text>
+          ) : null}
+        </View>
+
+        {event.description ? (
+          <Text className="mt-1.5 text-xs leading-5 text-zinc-500">{event.description}</Text>
+        ) : null}
+
+        <View className="mt-2 flex-row flex-wrap items-center gap-x-4 gap-y-1">
+          {event.date ? (
+            <MetaRow icon="calendar-outline" text={longDate(event.date)} />
+          ) : null}
+          {event.location ? <MetaRow icon="location-outline" text={event.location} /> : null}
+          {attendees > 0 ? (
+            <MetaRow icon="people-outline" text={`${attendees} attendees`} />
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MetaRow({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  return (
+    <View className="flex-row items-center gap-1">
+      <Ionicons name={icon} size={12} color="#a1a1aa" />
+      <Text className="text-xs text-zinc-500">{text}</Text>
+    </View>
+  );
+}
+
+// -------------------------------------------------------------------- links
+
+// type → icon + tint, mirroring the website's LinkTypeIcon.
+function linkIcon(type?: string | null): { name: keyof typeof Ionicons.glyphMap; color: string } {
+  switch (type) {
+    case 'repo':
+      return { name: 'logo-github', color: '#e4e4e7' };
+    case 'youtube':
+      return { name: 'logo-youtube', color: '#f87171' };
+    case 'linkedin':
+      return { name: 'logo-linkedin', color: '#60a5fa' };
+    case 'twitter':
+      return { name: 'logo-twitter', color: '#e4e4e7' };
+    case 'instagram':
+      return { name: 'logo-instagram', color: '#f472b6' };
+    case 'paper':
+      return { name: 'document-text', color: '#c084fc' };
+    case 'article':
+      return { name: 'document-text', color: '#d4d4d8' };
+    default:
+      return { name: 'globe-outline', color: '#a1a1aa' };
+  }
 }
 
 function LinksSection() {
@@ -189,52 +313,129 @@ function LinksSection() {
     () => getLinks().then((r) => r.groups ?? []),
     [] as LinkGroup[],
   );
+  const [search, setSearch] = useState('');
+
+  // Filter within each group by title/notes/label, then drop empty groups —
+  // the same shape the website uses.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return data;
+    return data
+      .map((g) => ({
+        ...g,
+        links: g.links.filter((l) =>
+          [l.title, l.notes, l.label].some(
+            (f) => typeof f === 'string' && f.toLowerCase().includes(q),
+          ),
+        ),
+      }))
+      .filter((g) => g.links.length > 0);
+  }, [data, search]);
 
   if (loading) return <Loading />;
 
   return (
     <FlatList
-      data={data}
+      data={filtered}
       keyExtractor={(group) => group.id}
-      contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
       }
-      ListHeaderComponent={error ? <ErrorNotice message={error} onRetry={load} /> : null}
-      ListEmptyComponent={error ? null : <Empty message="No links shared yet." />}
+      ListHeaderComponent={
+        <>
+          <SectionHeader title="Exposure Links" subtitle="Every link shared in Exposure." />
+          <View className="mb-5 flex-row items-center rounded-2xl border border-black/10 bg-white px-3.5">
+            <Ionicons name="search" size={16} color="#a1a1aa" />
+            <TextInput
+              className="flex-1 py-3 pl-2.5 text-[15px] text-zinc-900"
+              placeholder="Search links by title or description…"
+              placeholderTextColor="#a1a1aa"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={search}
+              onChangeText={setSearch}
+              clearButtonMode="while-editing"
+            />
+          </View>
+          {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+        </>
+      }
+      ListEmptyComponent={
+        error ? null : (
+          <Empty message={search ? 'No links match your search.' : 'No links shared yet.'} />
+        )
+      }
       renderItem={({ item: group }) => (
-        <View className="mb-4">
-          <Text className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-zinc-400">
-            {formatDate(group.date_from)}
-            {group.date_to ? ` – ${formatDate(group.date_to)}` : ''}
-          </Text>
+        <View className="mb-6">
+          <View className="mb-3 flex-row items-center gap-3">
+            <Text className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+              {shortDate(group.date_from)}
+              {group.date_to ? ` — ${longDateShort(group.date_to)}` : ''}
+            </Text>
+            <View className="h-px flex-1 bg-black/10" />
+            <Text className="text-[11px] text-zinc-400">
+              {group.links.length} link{group.links.length === 1 ? '' : 's'}
+            </Text>
+          </View>
           {group.links.map((link, index) => (
-            <TouchableOpacity
-              key={`${group.id}-${index}`}
-              className="mb-2 rounded-2xl border border-black/5 bg-white p-3.5"
-              activeOpacity={0.8}
-              onPress={() => Linking.openURL(link.url).catch(() => {})}
-            >
-              <Text className="text-[15px] font-semibold text-zinc-900">
-                {link.title || link.label || link.url}
-              </Text>
-              {link.description || link.notes ? (
-                <Text className="mt-1 text-[13px] leading-5 text-zinc-600" numberOfLines={3}>
-                  {link.description || link.notes}
-                </Text>
-              ) : null}
-              {link.type ? (
-                <View className="mt-2">
-                  <Chip label={link.type} />
-                </View>
-              ) : null}
-            </TouchableOpacity>
+            <LinkRow key={`${group.id}-${index}`} link={link} />
           ))}
         </View>
       )}
     />
   );
 }
+
+function LinkRow({ link }: { link: SharedLink }) {
+  const icon = linkIcon(link.type);
+  return (
+    <TouchableOpacity
+      className="mb-2 flex-row items-start gap-3 rounded-xl border border-black/5 bg-white px-4 py-3.5"
+      activeOpacity={0.8}
+      onPress={() => Linking.openURL(link.url).catch(() => {})}
+    >
+      <View className="mt-0.5 h-8 w-8 items-center justify-center rounded-lg bg-zinc-100">
+        <Ionicons name={icon.name} size={16} color="#52525b" />
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text className="text-sm font-medium leading-snug text-zinc-900">
+          {link.title || link.label || link.url}
+        </Text>
+        {link.notes ? (
+          <Text className="mt-0.5 text-xs leading-5 text-zinc-500" numberOfLines={2}>
+            {link.notes}
+          </Text>
+        ) : null}
+      </View>
+      <View className="flex-row items-center gap-2">
+        {link.label ? (
+          <View className="rounded-full bg-zinc-100 px-2.5 py-1">
+            <Text className="text-[10px] font-semibold text-zinc-600">{link.label}</Text>
+          </View>
+        ) : null}
+        <Ionicons name="open-outline" size={14} color="#a1a1aa" />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// "MAY 27" (no year) for the range start, "JUL 16, 2026" for the end — matches
+// the website's two-format range.
+function shortDate(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function longDateShort(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// --------------------------------------------------------------- newsletter
 
 function NewsletterSection() {
   const { data, loading, refreshing, error, load, onRefresh } = useSection(
@@ -244,46 +445,103 @@ function NewsletterSection() {
 
   if (loading) return <Loading />;
 
+  // No dedicated subscribe URL — the website derives it from the newest post's
+  // origin and hides the button when there are no posts.
+  const subscribeUrl = subscribeUrlFrom(data);
+
   return (
     <FlatList
       data={data}
       keyExtractor={(post) => post.id}
-      contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
       }
-      ListHeaderComponent={error ? <ErrorNotice message={error} onRetry={load} /> : null}
-      ListEmptyComponent={error ? null : <Empty message="No newsletter issues yet." />}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          className="mb-2.5 overflow-hidden rounded-2xl border border-black/5 bg-white"
-          activeOpacity={0.8}
-          onPress={() => Linking.openURL(item.web_url).catch(() => {})}
-        >
-          {item.thumbnail_url ? (
-            <Image
-              source={{ uri: item.thumbnail_url }}
-              style={{ width: '100%', height: 150 }}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-            />
-          ) : null}
-          <View className="p-4">
-            <Text className="text-[16px] font-semibold text-zinc-900">{item.title}</Text>
-            {item.subtitle ? (
-              <Text className="mt-1 text-[14px] leading-5 text-zinc-600" numberOfLines={2}>
-                {item.subtitle}
-              </Text>
+      ListHeaderComponent={
+        <>
+          <SectionHeader
+            title="Overexposed"
+            subtitle="Curated weekly digest of Exposure."
+            badge={{ label: 'Newsletter', className: 'bg-blue-500/15' }}
+            action={
+              subscribeUrl ? (
+                <TouchableOpacity
+                  className="flex-row items-center gap-1.5 rounded-xl bg-brand-blue px-4 py-2.5"
+                  activeOpacity={0.85}
+                  onPress={() => Linking.openURL(subscribeUrl).catch(() => {})}
+                >
+                  <Ionicons name="mail-outline" size={14} color="#fff" />
+                  <Text className="text-xs font-semibold text-white">Subscribe</Text>
+                </TouchableOpacity>
+              ) : undefined
+            }
+          />
+          {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+        </>
+      }
+      ListEmptyComponent={error ? null : <Empty message="No posts yet." />}
+      renderItem={({ item, index }) => {
+        const latest = index === 0;
+        return (
+          <View
+            className={`mb-3 rounded-2xl border p-5 ${
+              latest ? 'border-brand-blue/30 bg-brand-blue/5' : 'border-black/5 bg-white'
+            }`}
+          >
+            {latest ? (
+              <View className="mb-3 self-start rounded-full bg-brand-blue px-2.5 py-0.5">
+                <Text className="text-[10px] font-bold uppercase tracking-wider text-white">
+                  Latest
+                </Text>
+              </View>
             ) : null}
-            {item.publish_date ? (
-              <Text className="mt-2 text-[12px] text-zinc-400">{formatDate(item.publish_date)}</Text>
-            ) : null}
+            <View className="flex-row items-start justify-between gap-4">
+              <View className="flex-1">
+                <Text className="text-base font-bold text-zinc-900">{item.title}</Text>
+                {item.publish_date != null ? (
+                  <Text className="mt-1 text-xs text-zinc-400">
+                    {longDate(newsletterMillis(item.publish_date))}
+                  </Text>
+                ) : null}
+                {item.subtitle ? (
+                  <Text className="mt-2 text-sm leading-5 text-zinc-600">{item.subtitle}</Text>
+                ) : null}
+              </View>
+              {item.web_url ? (
+                <TouchableOpacity
+                  className="mt-0.5 flex-row items-center gap-1 rounded-lg bg-zinc-100 px-3 py-2"
+                  activeOpacity={0.7}
+                  onPress={() => Linking.openURL(item.web_url).catch(() => {})}
+                >
+                  <Text className="text-xs font-medium text-zinc-600">Read</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#52525b" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
-        </TouchableOpacity>
-      )}
+        );
+      }}
     />
   );
 }
+
+// Beehiiv publish_date is seconds; turn it into millis for Date. An ISO string
+// passes through untouched.
+function newsletterMillis(raw: number | string): number | string {
+  return typeof raw === 'number' ? raw * 1000 : raw;
+}
+
+function subscribeUrlFrom(posts: NewsletterPost[]): string | null {
+  const url = posts[0]?.web_url;
+  if (!url) return null;
+  try {
+    return `${new URL(url).origin}/subscribe`;
+  } catch {
+    return null;
+  }
+}
+
+// ------------------------------------------------------------------ youtube
 
 function YoutubeSection() {
   const { data, loading, refreshing, error, load, onRefresh } = useSection(
@@ -293,49 +551,126 @@ function YoutubeSection() {
 
   if (loading) return <Loading />;
 
-  // The API splits videos into two lists; showing them as one feed is
-  // simpler, and `is_short` already labels which is which.
-  const videos = [...(data.longForm ?? []), ...(data.shorts ?? [])];
+  const longForm = data.longForm ?? [];
+  const shorts = data.shorts ?? [];
+  const empty = longForm.length === 0 && shorts.length === 0;
 
   return (
-    <FlatList
-      data={videos}
-      keyExtractor={(video) => video.id}
-      contentContainerStyle={{ padding: 12, paddingBottom: 32 }}
+    <ScrollView
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
       }
-      ListHeaderComponent={error ? <ErrorNotice message={error} onRetry={load} /> : null}
-      ListEmptyComponent={error ? null : <Empty message="No videos to show." />}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          className="mb-2.5 flex-row items-center rounded-2xl border border-black/5 bg-white p-3"
-          activeOpacity={0.8}
-          // Videos open in the YouTube app / browser. No embedded player —
-          // it's a dependency and a maintenance cost for little gain.
-          onPress={() => Linking.openURL(item.youtube_url).catch(() => {})}
-        >
-          {item.thumbnail_urls?.[0] ? (
-            <Image
-              source={{ uri: item.thumbnail_urls[0] }}
-              style={{ width: 96, height: 64, borderRadius: 8 }}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-            />
-          ) : null}
-          <View className="ml-3 flex-1">
-            <Text className="text-[14px] font-semibold leading-5 text-zinc-900" numberOfLines={3}>
-              {item.title}
-            </Text>
-            <View className="mt-1 flex-row items-center gap-2">
-              {item.is_short ? <Chip label="Short" /> : null}
-              {item.published_at ? (
-                <Text className="text-[12px] text-zinc-400">{formatDate(item.published_at)}</Text>
-              ) : null}
-            </View>
+    >
+      <SectionHeader
+        title="YouTube"
+        subtitle="Videos from Exposure YouTube channel."
+        badge={{ label: 'Channel', className: 'bg-red-500/15' }}
+        action={
+          <TouchableOpacity
+            className="flex-row items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2.5"
+            activeOpacity={0.85}
+            onPress={() => Linking.openURL(YOUTUBE_CHANNEL_URL).catch(() => {})}
+          >
+            <Ionicons name="logo-youtube" size={14} color="#fff" />
+            <Text className="text-xs font-semibold text-white">Subscribe</Text>
+          </TouchableOpacity>
+        }
+      />
+
+      {error ? <ErrorNotice message={error} onRetry={load} /> : null}
+      {empty && !error ? <Empty message="No videos yet." /> : null}
+
+      {/* Long-form: one per row, 16:9. Shorts: two per row, 9:16 — the mobile
+          reading of the website's 3-col / 5-col grids. */}
+      {longForm.length > 0 ? (
+        <View className="mb-2">
+          {longForm.map((video) => (
+            <VideoCard key={video.id} video={video} />
+          ))}
+        </View>
+      ) : null}
+
+      {shorts.length > 0 ? (
+        <View className="flex-row flex-wrap justify-between">
+          {shorts.map((video) => (
+            <VideoCard key={video.id} video={video} vertical />
+          ))}
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+// Prefer the API's thumbnails; fall back to YouTube's derived URLs by id.
+function thumbUrl(video: YoutubeVideo): string | null {
+  if (video.thumbnail_urls?.[0]) return video.thumbnail_urls[0];
+  const id = youtubeId(video.youtube_url);
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+function youtubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
+    if (u.pathname.includes('/shorts/')) return u.pathname.split('/shorts/')[1];
+    return u.searchParams.get('v');
+  } catch {
+    return null;
+  }
+}
+
+function ytDate(raw?: string | null): string {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function VideoCard({ video, vertical }: { video: YoutubeVideo; vertical?: boolean }) {
+  const uri = thumbUrl(video);
+  return (
+    <TouchableOpacity
+      className={`mb-3 overflow-hidden rounded-2xl border border-black/5 bg-white ${
+        vertical ? 'w-[48%]' : ''
+      }`}
+      activeOpacity={0.85}
+      onPress={() => Linking.openURL(video.youtube_url).catch(() => {})}
+    >
+      <View className="relative">
+        {uri ? (
+          <Image
+            source={{ uri }}
+            style={{ width: '100%', aspectRatio: vertical ? 9 / 16 : 16 / 9 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        ) : (
+          <View
+            style={{ width: '100%', aspectRatio: vertical ? 9 / 16 : 16 / 9 }}
+            className="items-center justify-center bg-zinc-200"
+          >
+            <Ionicons name="logo-youtube" size={28} color="#a1a1aa" />
           </View>
-        </TouchableOpacity>
-      )}
-    />
+        )}
+        {/* Play badge overlay, like the website. */}
+        <View className="absolute inset-0 items-center justify-center">
+          <View className="h-11 w-11 items-center justify-center rounded-full bg-red-600/90">
+            <Ionicons name="play" size={20} color="#fff" />
+          </View>
+        </View>
+      </View>
+      <View className={vertical ? 'p-3' : 'p-4'}>
+        <Text
+          className={`font-semibold leading-snug text-zinc-900 ${vertical ? 'text-xs' : 'text-sm'}`}
+          numberOfLines={2}
+        >
+          {video.title}
+        </Text>
+        <Text className={`mt-1 text-zinc-400 ${vertical ? 'text-[11px]' : 'text-xs'}`}>
+          {ytDate(video.published_at)}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }

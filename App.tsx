@@ -88,7 +88,12 @@ function Tabs() {
         component={MatchScreen}
         options={{ headerShown: false, tabBarLabel: 'Weekly Match' }}
       />
-      <Tab.Screen name="Discover" component={DiscoverScreen} />
+      {/* Discover draws its own per-section headings, like the website. */}
+      <Tab.Screen
+        name="Discover"
+        component={DiscoverScreen}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

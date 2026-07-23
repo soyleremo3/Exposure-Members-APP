@@ -180,8 +180,9 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 3. **`GET /api/members/events` gerçekten 401 mi dönüyor** abonelik pasifken? API.md öyle diyor, kodda ona göre önlem alındı ama gerçek bir pasif hesapla test edilmedi.
 4. **Avatar yükleme** (`POST /upload-avatar`) gerçek bir dosyayla test edilmedi. `multipart/form-data`, alan adı `file`, max 5 MB, JPG/PNG/WEBP.
 5. **`share_token`** alanı `JobPost` tipinde var ama hiçbir yerde kullanılmıyor. İlan paylaşma özelliği istenirse buradan devam edilir.
+6. **Test hesabı `member_category`'si — sonra kesin halledilecek (kullanıcı 2026-07-23).** `varrochannel@gmail.com` `test` kategorisinde, yazma yapamıyor (§4.11). Web ekibine iletilecek: kategori `founder`/`explorer`/`first_batch` veya boş yapılırsa yazma açılır (Match için ayrıca `subscription_status = active` + `onboarding_complete = true`). Denge: `test` kalkınca hesap gerçek üye olur (rehberde görünür, referral gerçek mail atar, match gerçek eşleştirir). Ayarlanınca Auto opt-in vb. gerçek cihazda test edilecek.
 
-**Cevaplananlar:** arayüz dili (→ İngilizce, §4.7) · commit dili (→ İngilizce, §4.8)
+**Cevaplananlar:** arayüz dili (→ İngilizce, §4.7) · commit dili (→ İngilizce, §4.8) · web'in 3 profil kolonunu farklı kullanması (→ §4.10) · test hesabı 403 davranışı (→ §4.11)
 
 ---
 

@@ -78,18 +78,25 @@ export type ProfilePatch = Partial<{
 
 // ----------------------------------------------------------------- events
 
-// Events come from an external calendar, so the shape isn't guaranteed.
-// We define it loosely and let the screen render whatever fields exist.
+// Events are raw rows from the exposure_events table (the endpoint does
+// `select('*')`). The website reads the fields below; an older schema used
+// `image_url`/`attendee_count`/`is_past`, so those are kept as fallbacks and
+// the screen normalizes them. Index signature stays for anything unexpected.
 export type EventRecord = {
   id?: string;
   title?: string;
-  name?: string;
-  date?: string;
-  start_time?: string;
-  end_time?: string;
-  location?: string;
-  url?: string;
   description?: string;
+  date?: string;
+  location?: string;
+  // 'In-person' (green badge) or 'Online' (blue). Older rows: 'in-person'.
+  type?: string;
+  attendees?: number;
+  attendee_count?: number; // legacy column name
+  images?: string[];
+  image_url?: string | null; // legacy single-image column
+  upcoming?: boolean;
+  is_past?: boolean; // legacy inverse of `upcoming`
+  created_at?: string;
   [key: string]: unknown;
 };
 
@@ -247,7 +254,10 @@ export type NewsletterPost = {
   id: string;
   title: string;
   subtitle?: string | null;
-  publish_date?: string | null;
+  // Beehiiv sends this as a UNIX timestamp in SECONDS (a number), not a date
+  // string — the website multiplies by 1000 before `new Date()`. Kept loose
+  // because older/other sources might send an ISO string.
+  publish_date?: number | string | null;
   web_url: string;
   thumbnail_url?: string | null;
 };
