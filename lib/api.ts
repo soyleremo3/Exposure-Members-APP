@@ -11,6 +11,7 @@
 import { API_BASE } from './config';
 import { supabase } from './supabase';
 import type {
+  ApplicationDraft,
   AvatarUploadResponse,
   DirectoryResponse,
   EventsResponse,
@@ -285,4 +286,46 @@ export function getNewsletter(): Promise<NewsletterResponse> {
 // Note: on upstream failure this returns 200 with empty arrays, not an error.
 export function getYoutube(): Promise<YoutubeResponse> {
   return apiJson<YoutubeResponse>('/api/members/youtube');
+}
+
+// -------------------------------------------------------------------- apply
+
+// POST /api/applications — the public "Apply to join" form. Runs before
+// login, so it deliberately bypasses apiFetch/apiJson: there's no session
+// token to attach, and apiFetch's 401-means-signed-out handling doesn't apply
+// to a page nobody is logged into (same reasoning as the raw fetch in
+// LoginScreen.tsx for POST /api/members/auth). The body is multipart, like
+// uploadAvatar — no Content-Type here either, so fetch can add the boundary.
+export async function submitApplication(draft: ApplicationDraft): Promise<void> {
+  const form = new FormData();
+  form.append('name', draft.name);
+  form.append('email', draft.email);
+  form.append('phone', draft.phone);
+  form.append('age', draft.age);
+  form.append('linkedin', draft.linkedin);
+  form.append('github', draft.github);
+  form.append('occupation', draft.occupation);
+  form.append('companyLink', draft.companyLink);
+  form.append('location', draft.location);
+  form.append('motivation', draft.motivation);
+  form.append('impressiveProject', draft.impressiveProject);
+  form.append('unusuallyGoodAt', draft.unusuallyGoodAt);
+  form.append('approachedDifferently', draft.approachedDifferently);
+  form.append('tenYearVision', draft.tenYearVision);
+  form.append('referral', draft.referral);
+  // Server stores/expects this as one comma-separated string, same as the
+  // website's own `formData.memberTypes.join(', ')`.
+  form.append('memberTypes', draft.memberTypes.join(', '));
+
+  const res = await fetch(`${API_BASE}/api/applications`, { method: 'POST', body: form });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body && typeof body.error === 'string') message = body.error;
+    } catch {
+      // response wasn't JSON — keep the generic message
+    }
+    throw new ApiError(res.status, message);
+  }
 }

@@ -271,6 +271,31 @@ export type YoutubeVideo = {
   youtube_url: string;
 };
 
+// ------------------------------------------------------------------- apply
+
+// POST /api/applications (public, no auth) — the "Apply to join" form. Every
+// field below is required except `phone` and `referral` (server accepts a
+// blank phone despite the website marking it required with a red asterisk —
+// mirrored as-is, see API.md → Apply).
+export type ApplicationDraft = {
+  name: string;
+  email: string;
+  phone: string;
+  age: string;
+  linkedin: string;
+  github: string;
+  occupation: string;
+  companyLink: string;
+  location: string;
+  motivation: string;
+  impressiveProject: string;
+  unusuallyGoodAt: string;
+  approachedDifferently: string;
+  tenYearVision: string;
+  referral: string;
+  memberTypes: string[];
+};
+
 // ------------------------------------------------------- response wrappers
 // The API wraps every list/object in a named key.
 

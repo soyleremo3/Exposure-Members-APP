@@ -18,9 +18,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { API_BASE } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { BRAND_CREAM } from '../lib/theme';
+import type { PreAuthStackParamList } from '../navigation';
 
 // The code length is NOT fixed at 6. Real logins have arrived with 8 digits,
 // so we accept anything from 6 to 10 and let Supabase reject a wrong one.
@@ -29,6 +32,7 @@ const MIN_CODE_LENGTH = 6;
 const MAX_CODE_LENGTH = 10;
 
 export default function LoginScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<PreAuthStackParamList>>();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -134,6 +138,15 @@ export default function LoginScreen() {
               ) : (
                 <Text className="text-base font-bold text-brand-cream">Send login code</Text>
               )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-6 items-center"
+              onPress={() => navigation.navigate('Apply')}
+              disabled={busy}
+            >
+              <Text className="text-center text-sm text-faint">
+                Not a member? <Text className="font-semibold text-accent-link">Apply to join</Text>
+              </Text>
             </TouchableOpacity>
           </>
         ) : (

@@ -60,6 +60,58 @@ The app then verifies the code with Supabase directly (`supabase.auth.verifyOtp(
 
 ---
 
+## Apply (public, no auth)
+
+The "Apply to join" form at `exposureai.org/apply`. Verified 2026-07-24 from
+`app/(main)/apply/page.tsx` + `app/api/applications/route.ts` in
+`github.com/onurrcelik/Exposure` — not the screenshot, which only shows part
+of the form. The site's client collects five essay questions and an optional
+referral field beyond what a quick look suggests.
+
+### POST `/api/applications` — submit an application
+**No auth header.** Body is `multipart/form-data` (the website builds it with
+`FormData`, not JSON), fields all sent as plain strings:
+
+| Field | Required | Limit | Notes |
+|---|---|---|---|
+| `name` | yes | ≤120 | |
+| `email` | yes | ≤254 | must look like an email |
+| `phone` | **no** (server-side) | ≤40 | ⚠️ the website's `<input>` has `required`, but the server never checks it — mirrored as-is: the app also marks it required client-side, matching what a member actually experiences on the site |
+| `age` | yes | integer 16–99 | sent as a string, parsed server-side |
+| `linkedin` | yes | ≤500 | must be a valid `http(s)://` URL |
+| `github` | yes | ≤500 | valid `http(s)://` URL, **or** one of `no` / `none` / `n/a` / `na` (case-insensitive) for applicants without one. Stored as `""` when the "no GitHub" answer is used, not the literal word, so nothing downstream renders it as a link |
+| `occupation` | yes | ≤120 | |
+| `companyLink` | yes | ≤500 | must be a valid `http(s)://` URL |
+| `location` | yes | ≤120 | |
+| `motivation` | yes | ≤500 | essay |
+| `impressiveProject` | yes | ≤300 | essay |
+| `unusuallyGoodAt` | yes | ≤300 | essay |
+| `approachedDifferently` | yes | ≤300 | essay |
+| `tenYearVision` | yes | ≤300 | essay |
+| `referral` | no | ≤200 | name of the referring member, free text |
+| `memberTypes` | yes | ≤300 | comma-and-space-joined string built client-side from a multi-select (`formData.memberTypes.join(', ')`), e.g. `"Freelancer, Solopreneur"` — not an array |
+
+URL validation (`isLikelyUrl` in the site's `app/lib/request-security.ts`):
+`new URL(value)`, protocol must be `http:` or `https:`. Anything that throws
+(no scheme, bare domain, etc.) fails.
+
+Response:
+- `201 { "message": "Application submitted successfully" }` on success.
+- `400 { "error": "<message>" }` — missing required field, bad age, bad URL,
+  a field too long. Message text varies per rule (see the table above / the
+  route source for exact wording).
+- `429 { "error": "Too many submissions. Please try again later." }` — rate
+  limited at 20 submissions per hour per IP.
+- `500 { "error": "Failed to submit application" }` — DB insert failed.
+
+There is no "application received" screen or redirect — the website clears
+the form fields and shows a green inline message on the same page:
+*"Application received! We'll review it and reach out about next steps."*
+The app mirrors this (`screens/ApplyScreen.tsx`): form resets, inline success
+banner, no navigation.
+
+---
+
 ## Profile
 
 ### ⚠️ Four columns don't mean what they're named

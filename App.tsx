@@ -33,9 +33,10 @@ import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from './lib/supabase';
 import { DARK_VARS, LIGHT_VARS, ThemeProvider, useThemeColors } from './lib/theme';
-import type { RootStackParamList, TabParamList } from './navigation';
+import type { PreAuthStackParamList, RootStackParamList, TabParamList } from './navigation';
 
 import LoginScreen from './screens/LoginScreen';
+import ApplyScreen from './screens/ApplyScreen';
 import DirectoryScreen from './screens/DirectoryScreen';
 import MemberDetailScreen from './screens/MemberDetailScreen';
 import DiscoverScreen from './screens/DiscoverScreen';
@@ -45,6 +46,7 @@ import JobBoardScreen from './screens/jobs/JobBoardScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const PreAuthStack = createNativeStackNavigator<PreAuthStackParamList>();
 
 // Which Ionicon goes with which tab. Kept as one map so the tabBarIcon
 // callback below stays a one-liner.
@@ -170,7 +172,18 @@ function AppShell() {
               />
             </Stack.Navigator>
           ) : (
-            <LoginScreen />
+            <PreAuthStack.Navigator
+              screenOptions={{
+                headerStyle: { backgroundColor: c.bg },
+                headerTintColor: c.accentLink,
+                headerTitleStyle: { color: c.body },
+                headerShadowVisible: false,
+                contentStyle: { backgroundColor: c.bg },
+              }}
+            >
+              <PreAuthStack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+              <PreAuthStack.Screen name="Apply" component={ApplyScreen} options={{ title: 'Apply to Join' }} />
+            </PreAuthStack.Navigator>
           )}
         </NavigationContainer>
       </SafeAreaProvider>

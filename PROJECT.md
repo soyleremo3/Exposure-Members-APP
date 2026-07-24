@@ -13,9 +13,11 @@
 
 ### Kapsam — dışına çıkma
 
-**Var:** Giriş (email → kod) · Üye Rehberi · İş İlanları · Haftalık Eşleştirme · Etkinlikler · Topluluk içeriği (linkler / haber bülteni / YouTube) · Profil
+**Var:** Giriş (email → kod) · Başvuru formu (Apply, giriş gerektirmez) · Üye Rehberi · İş İlanları · Haftalık Eşleştirme · Etkinlikler · Topluluk içeriği (linkler / haber bülteni / YouTube) · Profil
 
-**Yok:** Herkese açık pazarlama sayfaları (ana sayfa, Apply başvuru formu, AI Academy). Onlar ayrı bir projede — `Exposure-APP` (repo: `soyleremo3/Exposure-APP`).
+**Yok:** Herkese açık pazarlama sayfaları (ana sayfa, AI Academy).
+
+> **2026-07-24 kapsam güncellemesi:** "Exposure Members Mobile" (repo: `soyleremo3/Exposure-APP`, webview tabanlı) kullanıcı tarafından **tamamen iptal edildi**. Bu proje artık tek aktif proje. Apply ekranı bu yüzden native olarak buraya taşındı — eskiden "Yok" listesindeydi, artık "Var". Ana sayfa ve AI Academy gibi diğer herkese açık sayfalar **hâlâ kapsam dışı**, iptal edilen projenin kapsamına girmiyorlardı zaten, ayrı bir kararla eklenmedikçe yapılmayacaklar.
 
 **Kapsam dışı bırakılan:** Community Brain (AI arama). SSE gerektiriyor (`react-native-sse`), kurulum kapsamında değildi. İstenirse ayrı görev olarak eklenir.
 
@@ -24,10 +26,14 @@
 ## 2. Mimari
 
 ```
-App.tsx ── session ? Stack(Tabs + push ekranları) : LoginScreen
+App.tsx ── session ? Stack(Tabs + push ekranları) : PreAuthStack(Login + Apply)
    │
    ├─ booting state: kayıtlı oturum okunana kadar boş cream ekran (tam splash YOK)
    └─ supabase.auth.onAuthStateChange → session state → ağaç otomatik değişir
+
+PreAuthStack (session yokken, 2026-07-24 eklendi)
+├─ Login    Giriş           → Apply (push, "Not a member? Apply to join" linki)
+└─ Apply    Başvuru formu   → geri: native-stack başlığındaki geri oku
 
 Tabs
 ├─ Directory   Rehber          → MemberDetail (push)
@@ -175,6 +181,58 @@ Event fotoları Supabase Storage `events` bucket'ında public URL (admin upload,
 - `lib/format.ts` → `toImageList()`: `images` dizi/JSON-string/virgüllü-string hepsini karşılıyor (bu backend'in liste alanı huyu — bkz. §4.3).
 - Tam ekran kaydırmalı galeri (Modal + paging FlatList) web'in lightbox'ının mobil karşılığı.
 
+### 4.14 Apply ekranı native olarak eklendi — **2026-07-24**
+
+Kapsam güncellemesi (§1): iptal edilen `Exposure-APP` (webview) projesinde duran Apply
+başvuru formu bu projeye **native** (WebView değil) olarak taşındı.
+
+**Gerçek veri `onurrcelik/Exposure` reposundan doğrulandı** (`app/(main)/apply/page.tsx`
++ `app/api/applications/route.ts` + `app/lib/request-security.ts`), ekran görüntüsünden
+tahmin edilmedi. Bulgular API.md'nin yeni "Apply (public, no auth)" bölümünde tam.
+Özet:
+
+- Form ekran görüntüsünde görünenden **çok daha geniş**: 5 essay sorusu (motivasyon +
+  4 tanesi) ve opsiyonel bir "referral" alanı var, sadece Full Name/Email/Phone/
+  Location/Age/Occupation/Company Link/LinkedIn/GitHub değil.
+- Endpoint `POST /api/applications` (tahmin edilen `/api/apply` değil), `multipart/
+  form-data` body (JSON değil), auth header'sız, 201'de `{ message }` dönüyor.
+- **Gerçek tuhaflık, kullanıcı onayı gerekmeden birebir yansıtıldı:** web'in `<input>`
+  alanı `phone`'u `required` işaretliyor ama **server hiç kontrol etmiyor** —
+  `route.ts`'teki zorunlu-alan listesinde `phone` yok. App de web'in davranışını
+  taklit ediyor (client-side required bırakıldı), backend kuralını "düzeltmedi".
+- GitHub alanı gerçekten "no"/"none"/"n/a"/"na" (case-insensitive) kabul ediyor —
+  placeholder'daki ipucu doğru çıktı, backend'de birebir doğrulandı.
+- Başarı davranışı: **ayrı bir teşekkür ekranı YOK.** Web formu temizliyor ve aynı
+  sayfada yeşil bir satır içi mesaj gösteriyor ("Application received!..."). App aynısını
+  yapıyor — navigasyon yok, sadece form reset + satır içi başarı bildirimi.
+
+**Navigasyon:** `App.tsx`'teki `session ? <Stack/> : <LoginScreen/>` dalı
+`session ? <Stack/> : <PreAuthStack/>` oldu. `PreAuthStack` (`navigation.ts`'te yeni
+`PreAuthStackParamList`) iki ekran: `Login` (headerShown:false, eski görünüm korunuyor)
+ve `Apply` (native-stack başlığı "Apply to Join", geri oku otomatik gelir).
+`LoginScreen`'e web'deki birebir metinle ("Not a member? **Apply to join**") bir link
+eklendi — sadece email adımında görünüyor (web'de de `sent` olmadan önce görünüyor).
+
+**Yeni API katmanı:** `lib/api.ts` → `submitApplication()`. `apiFetch`/`apiJson`
+kullanmıyor — `POST /api/members/auth`'un `LoginScreen.tsx`'teki çıplak `fetch` deseniyle
+aynı gerekçe: oturum yok, atılacak token yok, `apiFetch`'in 401→signOut mantığı
+giriş yapmamış birine uygulanamaz. `uploadAvatar()`'daki gibi `Content-Type` elle
+ayarlanmıyor (multipart boundary fetch'e bırakılıyor). Var olan authlu fonksiyonlara
+dokunulmadı.
+
+**Validasyon:** İstemci tarafı kontroller `onurrcelik/Exposure`'daki gerçek server
+kurallarının birebir kopyası (uzunluk limitleri, yaş 16–99, URL kontrolü, GitHub "no"
+istisnası) — API.md'deki tabloyla senkron. Son söz her zaman backend'de; istemci
+kontrolleri sadece hızlı geri bildirim için.
+
+**Tema:** `ApplyScreen` diğer tüm ekranlar gibi `useThemeColors()` kullanıyor,
+Dark/Light/System sistemine dokunulmadı (§4.13).
+
+**Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18, `expo export --platform ios`
+hatasız. **Cihazda henüz görülmedi** — kullanıcının Expo Go'da Login ekranındaki
+"Apply to join" linkini deneyip gerçek bir test başvurusuyla formu göndermesi
+gerekiyor.
+
 ### 4.11 Test hesapları salt-okunur (403) — backend davranışı sabit, client özel işleme **kaldırıldı (2026-07-24)**
 
 Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil. Bu backend kuralı **hâlâ geçerli**, değişen sadece uygulamanın buna nasıl tepki verdiği.
@@ -189,7 +247,8 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 
 | Ekran | Dosya | Durum | Endpoint |
 |---|---|---|---|
-| Giriş | `screens/LoginScreen.tsx` | Kod yazıldı, telefon onayı bekliyor | `POST /api/members/auth` + Supabase `verifyOtp` |
+| Giriş | `screens/LoginScreen.tsx` | Kod yazıldı, "Apply to join" linki eklendi (2026-07-24), telefon onayı bekliyor | `POST /api/members/auth` + Supabase `verifyOtp` |
+| Başvuru (Apply) | `screens/ApplyScreen.tsx` | **Eklendi (2026-07-24), gerçek backend kurallarına göre yazıldı, telefon onayı bekliyor** | `POST /api/applications` (auth yok) |
 | Üye Rehberi | `screens/DirectoryScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | `GET /directory` |
 | Üye Detayı | `screens/MemberDetailScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | — (route param) |
 | İş İlanları (tek ekran) | `screens/jobs/JobBoardScreen.tsx` | **Web modeline çevrildi (inline aç/başvur/öner/başvuranlar), telefon onayı bekliyor** | `GET`/`POST`/`PATCH`/`DELETE /job-board(/[id])`, `.../apply`, `.../refer`, `.../applications`, notifications |
@@ -221,6 +280,54 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-07-24 — Apply (başvuru) ekranı native olarak eklendi, kapsam güncellendi
+
+Yeni session. Kullanıcı kararı: "Exposure Members Mobile" (webview tabanlı, repo
+`soyleremo3/Exposure-APP`) projesi **tamamen iptal edildi**, bu proje artık tek aktif
+proje. Bu yüzden Apply formu WebView değil **native** olarak buraya taşındı. §1 ve §4
+(4.14) buna göre güncellendi.
+
+**Ne yapıldı:**
+
+1. `onurrcelik/Exposure` reposu scratchpad'e tekrar klonlandı, gerçek Apply component'i
+   (`app/(main)/apply/page.tsx`) ve API route'u (`app/api/applications/route.ts` +
+   `app/lib/request-security.ts`) okundu — hiçbir alan/kural tahmin edilmedi. Bulgular
+   API.md'nin yeni "Apply (public, no auth)" bölümüne yazıldı. Web sitesi 375px'te ayrıca
+   kontrol edilmedi çünkü gerçek component kodu zaten tam veri şeklini veriyordu (kod,
+   ekran görüntüsünden daha güvenilir kaynak); component'in kendisi zaten responsive
+   tek-sütun/iki-sütun grid'ler kullanıyor, mobilde farklı bir alan sırası yok.
+2. Gerçek bulgular ekran görüntüsündekinden geniş çıktı: 5 essay sorusu + opsiyonel
+   referral alanı var, endpoint `/api/applications` (tahmin `/api/apply` değil),
+   `multipart/form-data`, `phone` UI'da zorunlu görünse de **server hiç kontrol
+   etmiyor** (birebir yansıtıldı, düzeltilmedi), GitHub "no" istisnası doğrulandı.
+   Detay §4.14.
+3. `navigation.ts`'e `PreAuthStackParamList` (`Login`, `Apply`) eklendi. `App.tsx`
+   `session ? <Stack/> : <LoginScreen/>` yerine `session ? <Stack/> : <PreAuthStack/>`
+   oldu — `Login` header'sız (eski görünüm korunuyor), `Apply` "Apply to Join" başlıklı
+   native-stack ekranı (geri oku otomatik).
+4. `LoginScreen.tsx`'e web'deki birebir metinle "Not a member? **Apply to join**" linki
+   eklendi (sadece email adımında, web'in `!sent` davranışıyla aynı).
+5. `types.ts`'e `ApplicationDraft`, `lib/api.ts`'e `submitApplication()` eklendi —
+   `apiFetch`/`apiJson` kullanmıyor (auth yok, `LoginScreen`'in çıplak `fetch`
+   deseniyle aynı gerekçe), `uploadAvatar()`'daki gibi `Content-Type` elle
+   ayarlanmıyor. Var olan hiçbir authlu fonksiyon değişmedi.
+6. `screens/ApplyScreen.tsx` yeni yazıldı: 14 alan + memberTypes çoklu-seçim (chip,
+   `ProfileScreen`'in Background chip deseniyle aynı ama üst sınır yok), essay
+   alanlarında "142/500" karakter sayacı (web'in `TextareaField`'ıyla aynı eşik
+   mantığı: %90'da amber, limitte kırmızı), istemci validasyonu gerçek backend
+   kurallarının birebir kopyası. Başarıda web gibi form temizleniyor + satır içi yeşil
+   mesaj gösteriliyor (ayrı bir teşekkür ekranı yok). Hata `readableError` ile satır içi
+   kırmızı `Notice` (yeni, yerel, tek kullanımlık — `ErrorNotice`'ın kendisi değil çünkü
+   başarı varyantı da gerekiyordu; §4.11'de kaldırılan `InfoNotice` mekanizmasıyla
+   ilgisi yok). Tema: diğer ekranlar gibi `useThemeColors()`.
+7. API.md'ye "Apply (public, no auth)" bölümü eklendi (endpoint, alan tablosu,
+   limitler, hata şekilleri, başarı davranışı).
+
+**Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18, `expo export --platform ios`
+hatasız. **Cihazda henüz görülmedi** — kullanıcının Expo Go'da Login ekranındaki "Apply
+to join" linkini deneyip gerçek bir test başvurusuyla formu göndermesi gerekiyor
+(§8'e göre bu onaylanmadan görev bitmiş sayılmaz). Commit **atılmadı**, onay bekleniyor.
 
 ### 2026-07-24 — Profile ekranı web'in 3 kartlı düzenine hizalandı
 

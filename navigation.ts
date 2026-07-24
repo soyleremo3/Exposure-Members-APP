@@ -22,3 +22,10 @@ export type TabParamList = {
   Discover: undefined;
   Profile: undefined;
 };
+
+// Shown instead of Tabs/MemberDetail when there's no session. Login is the
+// default screen; Apply is pushed from its "Not a member? Apply to join" link.
+export type PreAuthStackParamList = {
+  Login: undefined;
+  Apply: undefined;
+};
