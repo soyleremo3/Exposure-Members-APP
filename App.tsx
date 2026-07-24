@@ -12,9 +12,9 @@
 // null, and the login screen comes back on its own — no navigation.reset(),
 // no navigationRef, nothing to keep in sync by hand.
 //
-// Theme: the app defaults to dark. We paint dark on the very first JS frame
-// (below) so a cold start never flashes light, then apply the member's saved
-// preference (which may be light or system) once it's read from storage.
+// Theme: the app defaults to dark. ThemeProvider's initial state is dark
+// synchronously (see lib/theme.tsx), so the very first render is already
+// correct — no flash, no imperative "paint dark then swap" dance needed.
 import './global.css';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -29,11 +29,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { colorScheme } from 'nativewind';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from './lib/supabase';
-import { DARK_VARS, LIGHT_VARS, loadThemePref, useThemeColors } from './lib/theme';
+import { DARK_VARS, LIGHT_VARS, ThemeProvider, useThemeColors } from './lib/theme';
 import type { RootStackParamList, TabParamList } from './navigation';
 
 import LoginScreen from './screens/LoginScreen';
@@ -43,10 +42,6 @@ import DiscoverScreen from './screens/DiscoverScreen';
 import MatchScreen from './screens/MatchScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import JobBoardScreen from './screens/jobs/JobBoardScreen';
-
-// Dark on the first frame. `darkMode: 'class'` means this is a manual set; the
-// stored preference is applied in the effect below.
-colorScheme.set('dark');
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -98,15 +93,22 @@ function Tabs() {
 }
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
+  );
+}
+
+// Split from App() so it can consume ThemeProvider's context — a component
+// can't read a context it renders itself.
+function AppShell() {
   const c = useThemeColors();
   const [session, setSession] = useState<Session | null>(null);
   // True until we've read whatever session is stored on the device.
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
-    // Apply the saved theme preference (default dark) over the first-frame dark.
-    loadThemePref().then((pref) => colorScheme.set(pref));
-
     // Cold start: read the persisted session (AsyncStorage) once.
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);

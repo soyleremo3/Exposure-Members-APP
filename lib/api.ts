@@ -35,32 +35,13 @@ export class ApiError extends Error {
   // i.e. this endpoint needs an active membership the member doesn't have.
   // Screens use this to show "membership required" instead of a login screen.
   subscriptionRequired: boolean;
-  // Set when the server rejected a write because this is a test account.
-  // The backend (proxy.ts) makes `member_category === 'test'` accounts
-  // GET-only: every non-GET to /api/members/* returns 403 "Test accounts are
-  // read-only". These are mobile-app testers who should be able to browse
-  // everything without side effects, so screens treat this as an expected,
-  // non-alarming condition rather than a failure.
-  readOnly: boolean;
 
   constructor(status: number, message: string, subscriptionRequired = false) {
     super(message);
     this.status = status;
     this.subscriptionRequired = subscriptionRequired;
-    this.readOnly = status === 403 && /read-only/i.test(message);
   }
 }
-
-// True when an error is the backend's "test accounts are read-only" 403.
-// Screens use it to swallow the red error strip and show a gentle notice
-// instead — the write was never going to persist for a test account.
-export function isReadOnlyError(e: unknown): boolean {
-  return e instanceof ApiError && e.readOnly;
-}
-
-// Shown once per screen when the signed-in account is a read-only tester.
-export const READ_ONLY_NOTICE =
-  "You're on a read-only test account — changes here won't be saved.";
 
 // Turn anything thrown by the helpers below into a sentence a member can
 // read. The server's own `error` message is usually the most specific thing
@@ -68,7 +49,6 @@ export const READ_ONLY_NOTICE =
 // override where it isn't self-explanatory.
 export function readableError(e: unknown, fallback = 'Something went wrong.'): string {
   if (e instanceof ApiError) {
-    if (e.readOnly) return READ_ONLY_NOTICE;
     if (e.status === 429) return 'Too many requests — wait a few minutes and try again.';
     if (e.status >= 500) return 'The server had a problem. Please try again shortly.';
     return e.message;

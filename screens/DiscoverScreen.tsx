@@ -37,16 +37,14 @@ import {
   getNewsletter,
   getProfile,
   getYoutube,
-  isReadOnlyError,
   readableError,
-  READ_ONLY_NOTICE,
   updateProfile,
 } from '../lib/api';
 import { toImageList } from '../lib/format';
 import { resizedImage } from '../lib/images';
 import { BRAND_BLUE } from '../lib/theme';
 import type { EventRecord, LinkGroup, NewsletterPost, SharedLink, YoutubeVideo } from '../types';
-import { Empty, ErrorNotice, InfoNotice, Loading } from '../components/Feedback';
+import { Empty, ErrorNotice, Loading } from '../components/Feedback';
 
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/channel/UC3HbxGtKcJOEh3y46ze3Buw';
 
@@ -826,7 +824,6 @@ function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => vo
     { ...BLANK_REFERRAL },
     { ...BLANK_REFERRAL },
   ]);
-  const [readOnly, setReadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -836,7 +833,6 @@ function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => vo
     try {
       const { member } = await getProfile();
       setReferrals(parseReferrals(member.website));
-      setReadOnly(member.member_category === 'test');
       setError('');
     } catch (e) {
       setError(readableError(e));
@@ -870,9 +866,7 @@ function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => vo
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
-      // Read-only test accounts can't write; the banner already explains, so
-      // don't flash a red error — just don't claim it saved.
-      if (!isReadOnlyError(e)) setError(readableError(e));
+      setError(readableError(e));
     } finally {
       setSaving(false);
     }
@@ -887,7 +881,6 @@ function ReferralSection({ onDoneChange }: { onDoneChange: (done: boolean) => vo
     >
       <SectionHeader title="Refer a Friend" subtitle="Who else belongs in Exposure?" />
 
-      {readOnly ? <InfoNotice message={READ_ONLY_NOTICE} /> : null}
       {error ? <ErrorNotice message={error} onRetry={load} /> : null}
 
       <Text className="mb-5 text-sm leading-6 text-muted">

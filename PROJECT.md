@@ -52,7 +52,7 @@ Tabs
 | `lib/supabase.ts` | Tek auth client, AsyncStorage persist, AppState refresh köprüsü |
 | `lib/api.ts` | `apiFetch`/`apiJson` + her endpoint için tipli yardımcı + `readableError` |
 | `lib/format.ts` | `toTypeList`, `initialsOf`, `formatDate`, `timeAgo` |
-| `lib/theme.ts` | `BRAND_BLUE` / `BRAND_CREAM` — class ile stillenemeyen prop'lar için |
+| `lib/theme.tsx` | Renkler, `ThemeProvider`/`useTheme`/`useThemeColors` — bkz. §4.13 |
 | `types.ts` | API cevap şekilleri |
 | `navigation.ts` | Route adları + parametreleri (`RootStackParamList`, `TabParamList`) |
 | `components/` | `Avatar`, `Chip`, `Buttons`, `Feedback` (Loading/ErrorNotice/Empty) |
@@ -143,16 +143,28 @@ API.md'de **tek ilan getiren endpoint yok** — sadece `GET /api/members/job-boa
 
 Bunlar URL değil, düz metin. Eski `MemberDetailScreen` `instagram`/`twitter`'ı sosyal link sanıp `Linking.openURL` ile açmaya çalışıyordu — **gerçek bug, düzeltildi**. Ayrıntı API.md → Profile başındaki tablo. Sadece `linkedin`, `github`, `occupation_link` gerçek URL.
 
-### 4.13 Tema sistemi: Dark/Light/System, varsayılan Dark — **eklendi (2026-07-23)**
+### 4.13 Tema sistemi: Dark/Light/System, varsayılan Dark — **eklendi (2026-07-23), mekanizma değişti (2026-07-24)**
 
 Web'de yok, kullanıcı isteğiyle eklendi: uygulama ilk açılışta **koyu**, ama üye Profile > Appearance'tan Dark/Light/System arası geçebiliyor, tercih kalıcı (AsyncStorage).
 
-- **Mekanizma:** NativeWind v4 + Tailwind v3. `darkMode: 'class'` (manuel geçiş için şart, yoksa `setColorScheme` hata verir). Renkler **semantik token** (`bg-background`, `surface`, `chip`, `hairline`, `body`, `muted`, `faint`, `accent-link`) — `tailwind.config.js`'te `rgb(var(--x) / <alpha-value>)`. Ekranlar sadece bu token'ları kullanıyor, `dar​k:` varyantı serpiştirilmedi.
-- **Neden `.dark {}` değil, `vars()`:** Tailwind v3'te `.dark { --var }` CSS-değişken switch'inin NativeWind native'de çalıştığı **doğrulanamadı** (ctx7 dokümanları v4 `@theme`'e odaklı). Bunun yerine kesin çalışan yol: `App.tsx` kökünde `<View style={vars(...)}>` ile aktif temanın değişkenleri runtime sağlanıyor (`LIGHT_VARS`/`DARK_VARS`, `lib/theme.ts`). Şema değişince App re-render → değişkenler anında döner.
-- **İlk kare koyu:** `global.css` `:root` **koyu** değerlerle (varsayılan), ayrıca `App.tsx` modül yüklenince `colorScheme.set('dark')`. Kayıtlı tercih (light/system olabilir) boot effect'te uygulanıyor. Böylece açılışta beyaz flash yok.
-- **Class alamayan yerler** (`ActivityIndicator color`, `RefreshControl tintColor`, navigator `screenOptions`, `StatusBar`, NavigationContainer theme): `lib/theme.ts` → `useThemeColors()` hook'undan renk okuyor. İki tek istisna (ErrorNotice kırmızı kutusu) `dark:` varyantıyla dönüyor.
-- **Kontrol:** `ProfileScreen` → Appearance segment'i (Light/Dark/System), `useColorScheme().setColorScheme` + `saveThemePref`.
+**2026-07-23 mekanizması çalışmıyordu — kök neden bulundu (2026-07-24):** Pill seçili göründüğü halde (kendi local state'i güncelleniyordu) arka plan hiç değişmiyordu. İki ayrı sorun tespit edildi:
+
+1. **`app.json` → `userInterfaceStyle: "light"`.** Uygulamanın native kabuğu ışığa kilitliydi. NativeWind'in kendi dokümanı (nativewind.dev) manuel tema geçişi için bunun `"automatic"` olması gerektiğini açıkça söylüyor. `"automatic"` yapıldı. (Bu alan sadece gerçek native build'de — EAS/dev client — derlenip Info.plist/manifest'e gömülüyor; Expo Go kendi önceden derlenmiş kabuğunu kullandığı için bu tek başına Expo Go'daki testi düzeltmiyordu — madde 2 asıl sebepti.)
+2. **Asıl sebep: NativeWind'in `useColorScheme()`/`colorScheme.set()` API'si.** ctx7 ile NativeWind dokümantasyonu kontrol edildi: bu API resmi olarak **deprecated**, yerine react-native'in kendi `useColorScheme()`'i öneriliyor. Kaynağa inildi (`node_modules/react-native-css-interop`): `colorScheme.set()` React Native'in `Appearance.setColorScheme()` native metoduna gidiyor, ve bu override'ın gerçekten uygulanıp bir `appearanceChanged` event'i tetikleyip tetiklemediği native tarafın implementasyonuna bağlı — Expo Go'da (özel dev client yok, bkz. §4.1) bunun güvenilir çalıştığı doğrulanamadı. Zaten §5 tablosunda bu özelliğin "telefon onayı bekliyor" durumda kaldığı, hiç cihazda görülmediği not düşülmüştü — muhtemelen baştan beri çalışmıyordu.
+
+**Yeni mekanizma:** NativeWind'in colorScheme/`.dark` class sistemine artık hiç dokunulmuyor. Tema tamamen kendi React state'imizle sürülüyor:
+
+- **`lib/theme.tsx`** (`lib/theme.ts` idi, `ThemeProvider` JSX içerdiği için `.tsx`'e taşındı) → `ThemeProvider` + `useTheme()`: `ThemePref` (`light`/`dark`/`system`) kendi `useState`'inde tutuluyor, ilk değer senkron `'dark'` (AsyncStorage'ı beklemeden — açılışta flaş yok). `pref === 'system'` ise react-native'in **kendi** (nativewind'in değil) `useColorScheme()`'i ile OS temasına bakılıyor. `setPref()` hem state'i günceller hem `saveThemePref()` ile kalıcı yazar.
+- **`useThemeColors()`** artık bu Context'ten okuyor (`isDark` → `LIGHT`/`DARK` renk objesi), nativewind'e bağımlı değil.
+- **`vars()` provider korundu** — bu kısım zaten doğruydu (nativewind.dev'in resmi "multi-theme" örneğiyle birebir aynı desen). `App.tsx` kökünde `<View style={c.isDark ? DARK_VARS : LIGHT_VARS}>` hâlâ semantik token'ları (`bg-background`, `surface`, `chip`, `hairline`, `body`, `muted`, `faint`, `accent-link`) besliyor. Fark: bu değer artık nativewind'in `colorScheme.get()`'inden değil, kendi Context'imizden geliyor.
+- **`App.tsx` yapısı değişti:** `App()` sadece `<ThemeProvider><AppShell /></ThemeProvider>` döndürüyor; asıl içerik (`useThemeColors()` çağıran, navigator kuran her şey) `AppShell`'e taşındı — bir component kendi sardığı Provider'ı okuyamadığı için ayrıldı. Modül seviyesindeki `colorScheme.set('dark')` çağrısı kaldırıldı (artık gereksiz — `ThemeProvider`'ın ilk state'i zaten senkron `dark`).
+- **`global.css`** tek `:root` bloğuna (koyu değerler) geri döndü, `.dark {}` bloğu kaldırıldı — hiçbir kod artık o class'ı tetiklemiyor, iki mekanizma yerine tek mekanizma (vars provider) kaldı.
+- **`dark:` varyant istisnaları da düzeltildi:** `ErrorNotice` (Feedback.tsx) ve Profile'daki "Sign out" metni `dark:bg-red-500/10` gibi Tailwind varyantı kullanıyordu — bu da nativewind'in class-toggle'ına bağımlıydı, o artık hiç tetiklenmiyor. İkisi de `useThemeColors().isDark`'a göre className seçen koşullu ifadeye çevrildi.
+- **Class alamayan yerler** (`ActivityIndicator color`, `RefreshControl tintColor`, navigator `screenOptions`, `StatusBar`, NavigationContainer theme): değişmedi, hâlâ `useThemeColors()`'tan okuyor.
+- **`tailwind.config.js`**: `darkMode: 'class'` bırakıldı (zararsız, `dark:` kullanılmadığı sürece etkisiz) ama yorumu güncellendi — artık aktif mekanizma değil.
 - **Not:** exposureai.org sadece koyu; bu bilinçli bir "web'den sapma" (kullanıcı onayı ile). `brand-blue`/`brand-cream` tema-değişmez (buton dolgu + üstündeki metin).
+- **Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18, `expo export --platform ios` bundle hatasız (1339 modül). **Cihazda henüz görülmedi** — üç seçeneğin de (Light/Dark/System) gerçekten çalıştığı kullanıcı tarafından Expo Go'da teyit edilmeli.
+- **Android notu:** Expo dokümanı `userInterfaceStyle` desteği için Android'de `expo-system-ui` paketinin (development build'de) gerekli olduğunu söylüyor. Şu an kurulmadı — proje henüz Android'e geçmedi (§1), o zaman değerlendirilecek.
 
 ### 4.12 Event görselleri: Supabase render + galeri — **eklendi (2026-07-23)**
 
@@ -163,11 +175,13 @@ Event fotoları Supabase Storage `events` bucket'ında public URL (admin upload,
 - `lib/format.ts` → `toImageList()`: `images` dizi/JSON-string/virgüllü-string hepsini karşılıyor (bu backend'in liste alanı huyu — bkz. §4.3).
 - Tam ekran kaydırmalı galeri (Modal + paging FlatList) web'in lightbox'ının mobil karşılığı.
 
-### 4.11 Test hesapları salt-okunur (403) — **doğrulandı (2026-07-23)**
+### 4.11 Test hesapları salt-okunur (403) — backend davranışı sabit, client özel işleme **kaldırıldı (2026-07-24)**
 
-Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil.
+Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil. Bu backend kuralı **hâlâ geçerli**, değişen sadece uygulamanın buna nasıl tepki verdiği.
 
-Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadOnlyError(e)` + `READ_ONLY_NOTICE`. Yazma yapan **her ekran**: `member_category === 'test'` ise üstte nötr `InfoNotice` banner'ı gösterir, mutation'daki read-only hatasını kırmızı `ErrorNotice` yerine sessizce yutar. Match, Refer a Friend ve Job Board'da uygulandı. (ProfileScreen'in kendi yazma akışına henüz eklenmedi — Profile hizalaması yapıldığında eklenecek.)
+**Önceki durum (2026-07-23, artık geçerli değil):** `lib/api.ts` → `ApiError.readOnly` + `isReadOnlyError(e)` + `READ_ONLY_NOTICE` sabiti + `components/Feedback.tsx` → `InfoNotice` bileşeni. Yazma yapan her ekran (`ProfileScreen`, `MatchScreen`, `DiscoverScreen`'in Refer a Friend'i, `JobBoardScreen`) `member_category === 'test'` ise üstte nötr banner gösteriyor, mutation'daki 403'ü kırmızı `ErrorNotice` yerine sessizce yutuyordu.
+
+**Yeni durum (2026-07-24, kullanıcı kararı):** Banner ve arkasındaki tüm özel mantık tamamen kaldırıldı — koşullu gizleme değil, tam silme. `ApiError.readOnly`, `isReadOnlyError`, `READ_ONLY_NOTICE`, `InfoNotice` ve dört ekrandaki `readOnly` state/prop'ları silindi. Sonuç: bir test hesabı yazma denediğinde artık **hiçbir özel davranış yok** — 403 normal `readableError`/`ErrorNotice` yoluyla kırmızı hata şeridi olarak görünüyor, mesaj backend'in kendi metni ("Test accounts are read-only"). Diğer her API hatasıyla aynı yol.
 
 ---
 
@@ -179,11 +193,11 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 | Üye Rehberi | `screens/DirectoryScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | `GET /directory` |
 | Üye Detayı | `screens/MemberDetailScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | — (route param) |
 | İş İlanları (tek ekran) | `screens/jobs/JobBoardScreen.tsx` | **Web modeline çevrildi (inline aç/başvur/öner/başvuranlar), telefon onayı bekliyor** | `GET`/`POST`/`PATCH`/`DELETE /job-board(/[id])`, `.../apply`, `.../refer`, `.../applications`, notifications |
-| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar + read-only), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
+| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
 | Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Eklendi + nokta, telefonda onaylandı (2026-07-23)** | `GET`/`PATCH /profile` (`website` alanı) |
-| Profil | `screens/ProfileScreen.tsx` | **Appearance (tema) seçici eklendi; website alanı kaldırıldı; telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
-| Global tema (Dark/Light/System) | `lib/theme.ts`, `global.css`, `tailwind.config.js`, `App.tsx` | **Kuruldu (varsayılan Dark), telefon onayı bekliyor** | — |
+| Profil | `screens/ProfileScreen.tsx` | **Appearance (tema) seçici eklendi ve düzeltildi; website alanı kaldırıldı; read-only test hesabı banner'ı tamamen kaldırıldı; telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
+| Global tema (Dark/Light/System) | `lib/theme.tsx`, `global.css`, `tailwind.config.js`, `App.tsx` | **Kuruldu (varsayılan Dark), 2026-07-24 kök neden bulunup düzeltildi (bkz. §4.13), telefon onayı bekliyor** | — |
 | Keşfet → Community Brain | — | **Yapılmadı** (sıradaki adım — "Coming Soon", allowlist'te değiliz) | `/community-graph`, `/brain-query*` |
 
 > **"Telefon onayı bekliyor"** = kod yazıldı, `tsc` ve `expo-doctor` temiz, ama kullanıcı kendi telefonunda Expo Go ile görüp onaylamadı. Onaylanmadan "bitti" sayılmaz.
@@ -207,6 +221,22 @@ Web bunu sessizce yutuyor. Bizde `lib/api.ts` → `ApiError.readOnly` + `isReadO
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-07-24 — Test hesabı doğrulaması, read-only banner kaldırma, tema toggle kök neden + düzeltme
+
+Yeni session (öncekinin devamı, konuşma dolduğu için taşındı). Üç görev sırayla yapıldı.
+
+**1) Test hesabı fix doğrulaması.** Kullanıcı önceki session'da §4.11'i çözdüğünü söyledi, bu session'da sadece doğrulama istendi. `lib/api.ts` (`ApiError.readOnly`, `isReadOnlyError`, `READ_ONLY_NOTICE`) ve dört ekran (Profile, Match, Discover, JobBoard) tarandı — mekanizma tutarlı, çökme yolu yok, eski/bozuk mantık kalıntısı bulunmadı. **Doğrulandı.** (Hemen ardından madde 2'de bu mekanizma zaten kaldırıldı — aşağı bakın.)
+
+**2) Read-only test hesabı banner'ı tamamen kaldırıldı** (kullanıcı kararı — koşullu gizleme değil, tam silme). `lib/api.ts`'ten `ApiError.readOnly`/`isReadOnlyError`/`READ_ONLY_NOTICE`, `components/Feedback.tsx`'ten `InfoNotice`, ve dört ekrandaki (`ProfileScreen`, `MatchScreen`, `DiscoverScreen`, `JobBoardScreen`) `readOnly` state/prop zinciri + banner JSX'i + sessizce-yutma catch mantığı silindi. Sonuç: test hesabı yazma denediğinde artık backend'in 403 mesajı ("Test accounts are read-only") normal kırmızı `ErrorNotice` olarak görünüyor — diğer her hata gibi. Backend davranışı **değişmedi**, sadece client'ın tepkisi sadeleşti. API.md + PROJECT.md §4.11 güncellendi. `tsc --noEmit` temiz.
+
+**3) Dark/Light/System toggle — kök neden bulundu ve düzeltildi** (bkz. §4.13 için tam detay). Özet: pill seçili görünüyordu ama arka plan hiç değişmiyordu. İki sorun: (a) `app.json` → `userInterfaceStyle: "light"` (native kabuk ışığa kilitli — `"automatic"` yapıldı, NativeWind'in kendi dokümanının gerektirdiği gibi); (b) asıl sebep, NativeWind'in `useColorScheme()`/`colorScheme.set()` API'sinin **resmi olarak deprecated** olması ve altında yatan `Appearance.setColorScheme()` native override'ının Expo Go'da (özel dev client yok) güvenilir çalıştığının doğrulanamaması — kaynağa inilerek (`node_modules/react-native-css-interop`) teyit edildi. Çözüm: tema artık nativewind'in colorScheme mekanizmasına hiç dokunmadan, kendi `ThemeProvider`/`useTheme()` (React Context, `lib/theme.tsx`) ile sürülüyor; `vars()` provider deseni (App.tsx kökü) korundu çünkü o kısım zaten nativewind.dev'in resmi örneğiyle birebir doğruydu. `dark:` varyantı kullanan iki istisna (ErrorNotice, Profile sign-out) da aynı sebeple `isDark` koşuluna çevrildi. `global.css`/`tailwind.config.js` yorumları güncellendi, artık kullanılmayan `.dark {}` bloğu kaldırıldı.
+
+Araştırma ctx7 ile NativeWind + Expo resmi dokümanları üzerinden yapıldı (kullanıcının context7 kuralı gereği), sonra `node_modules` kaynağına inilerek native round-trip'in tam olarak nasıl çalıştığı doğrulandı — tahmine dayalı bir düzeltme değil.
+
+**Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18, `expo export --platform ios` bundle hatasız (1339 modül, hata yok). **Cihazda henüz görülmedi** — kullanıcının üç görevi de (özellikle üç tema seçeneğini tek tek) Expo Go'da teyit etmesi gerekiyor.
+
+Bu session'da commit **atılmadı** — kullanıcının telefon onayı bekleniyor (çalışma disiplini, §8).
 
 ### 2026-07-23 — Web'e hizalama (Directory, Match, Discover) + `onurrcelik/Exposure` incelendi
 

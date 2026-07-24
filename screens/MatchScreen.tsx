@@ -29,19 +29,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  getMatch,
-  postMatch,
-  getProfile,
-  updateProfile,
-  isReadOnlyError,
-  READ_ONLY_NOTICE,
-} from '../lib/api';
+import { getMatch, postMatch, getProfile, updateProfile } from '../lib/api';
 import { BRAND_BLUE } from '../lib/theme';
 import type { MatchData, MatchPartner, SelfMember } from '../types';
 import type { RootStackParamList } from '../navigation';
 import Avatar from '../components/Avatar';
-import { ErrorNotice, InfoNotice, Loading } from '../components/Feedback';
+import { ErrorNotice, Loading } from '../components/Feedback';
 
 // "Jul 20" — the website renders week_of without a year.
 function weekOf(raw: string): string {
@@ -103,9 +96,6 @@ export default function MatchScreen() {
       await postMatch(payload);
       await load();
     } catch (e) {
-      // A read-only test account can't write; the optimistic flags already
-      // reflected the tap, so mirror the website and stay quiet.
-      if (isReadOnlyError(e)) return;
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
       setBusy(false);
@@ -119,7 +109,6 @@ export default function MatchScreen() {
       const res = await updateProfile({ auto_opt_in: !self.auto_opt_in });
       setSelf(res.member);
     } catch (e) {
-      if (isReadOnlyError(e)) return;
       setError(e instanceof Error ? e.message : 'Could not update preference.');
     } finally {
       setTogglingAuto(false);
@@ -129,9 +118,6 @@ export default function MatchScreen() {
   if (loading) return <Loading />;
 
   const round = data?.currentRound ?? null;
-  // Test accounts are GET-only (backend proxy.ts). Tell the tester up front so
-  // the untouched toggle and unsaved opt-ins read as expected, not broken.
-  const readOnly = self?.member_category === 'test';
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -146,7 +132,6 @@ export default function MatchScreen() {
         </Text>
 
         <View className="mt-3">
-          {readOnly ? <InfoNotice message={READ_ONLY_NOTICE} /> : null}
           {error ? <ErrorNotice message={error} onRetry={load} /> : null}
         </View>
 

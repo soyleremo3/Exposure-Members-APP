@@ -6,9 +6,11 @@ module.exports = {
     './components/**/*.{js,jsx,ts,tsx}',
   ],
   presets: [require('nativewind/preset')],
-  // 'class' (not 'media') so the theme can be toggled at runtime via
-  // setColorScheme — see lib/theme.ts. NativeWind toggles the `.dark` class,
-  // which swaps the CSS variables defined in global.css.
+  // Not actually used for switching — this app drives theme via a `vars()`
+  // provider keyed off its own React state, not NativeWind's colorScheme/
+  // `.dark` class toggle (see lib/theme.tsx for why). Left as 'class' rather
+  // than 'media' only so no `dark:` variant could accidentally follow the OS
+  // scheme behind the provider's back.
   darkMode: 'class',
   theme: {
     extend: {

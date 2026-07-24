@@ -26,11 +26,10 @@ Server-side rules (you can't bypass these from the app):
   returns **403 `{ "error": "Test accounts are read-only" }`** for *every*
   non-GET to `/api/members/*` — profile edits, avatar upload, match opt-in,
   job posts/applications/referrals, notification settings, everything. This is
-  not a failure; it's the whole point of the test account. `lib/api.ts` flags
-  it as `ApiError.readOnly` (`isReadOnlyError(e)`), and screens show the
-  neutral `READ_ONLY_NOTICE` banner instead of a red error, mirroring the
-  website (which silently ignores the 403). Detect the account up front with
-  `member_category === 'test'` from `GET /profile`.
+  not a failure; it's the whole point of the test account. The app has no
+  special handling for it — the 403 surfaces through the normal
+  `readableError`/`ErrorNotice` path like any other write failure (decided
+  2026-07-24, see PROJECT.md §4.11).
 
 ## Common error responses
 

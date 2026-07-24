@@ -1,10 +1,17 @@
-// Your own profile: photo, editable fields, notification settings, sign out.
+// Your own profile: photo, editable fields, appearance, notifications, sign out.
 //
 // IMPORTANT — App Store rule: NO subscription, billing, or payment UI in
 // this app, ever. Apple requires in-app purchases to go through their IAP
 // system (with their 30% cut), and even LINKING to an external payment page
 // can get the app rejected. Membership and billing live on the website only.
-// Do not add "manage subscription", prices, or Stripe links here.
+// Do not add "manage subscription", prices, or Stripe links here. (The website
+// shows a membership card here; it is deliberately absent in the app.)
+//
+// The field labels below are NOT the column names. This backend reuses three
+// columns for something else entirely — `bio` holds the current occupation,
+// `twitter` the area of interest, `instagram` the educational background — so
+// the labels match the website's form, not the database. `website` is absent
+// on purpose: it stores the Refer a Friend payload. See API.md → Profile.
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,53 +27,54 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useColorScheme } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getJobNotifications,
   getProfile,
+  readableError,
   updateJobNotifications,
   updateProfile,
   uploadAvatar,
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { BRAND_BLUE, BRAND_CREAM, loadThemePref, saveThemePref } from '../lib/theme';
+import { BRAND_BLUE, BRAND_CREAM, useTheme, useThemeColors } from '../lib/theme';
 import type { ThemePref } from '../lib/theme';
 import type { JobNotificationSettings, ProfilePatch, SelfMember } from '../types';
 import Avatar from '../components/Avatar';
 import { ErrorNotice, Loading } from '../components/Feedback';
 
-// The editable text fields, in the order they appear. Driving the form from
-// a list keeps this screen from turning into 200 lines of near-identical
-// TextInputs. `key` must be a field PATCH /api/members/profile accepts.
+// The editable text fields, in the website's order and with its labels.
+// `key` must be a field PATCH /api/members/profile accepts.
 const FIELDS: {
   key: keyof ProfilePatch;
   label: string;
-  placeholder?: string;
+  placeholder: string;
   multiline?: boolean;
   maxLength?: number;
   keyboardType?: 'default' | 'phone-pad' | 'url';
 }[] = [
-  { key: 'name', label: 'Name', maxLength: 120 },
-  { key: 'bio', label: 'Bio', multiline: true, maxLength: 280 },
+  { key: 'name', label: 'Full Name', placeholder: 'Your name', maxLength: 120 },
   { key: 'location', label: 'Location', placeholder: 'Istanbul, Turkey' },
+  { key: 'phone', label: 'Phone', placeholder: '+90 555 000 00 00', maxLength: 40, keyboardType: 'phone-pad' },
+  { key: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/...', keyboardType: 'url' },
+  { key: 'github', label: 'GitHub', placeholder: 'github.com/...', keyboardType: 'url' },
+  // `bio` — the occupation, not a life story. 280 chars server-side.
+  { key: 'bio', label: 'Current Occupation', placeholder: 'Building a SaaS product…', multiline: true, maxLength: 280 },
+  { key: 'occupation_link', label: 'Relevant Link (optional)', placeholder: 'yourproduct.com', keyboardType: 'url' },
+  // `twitter` and `instagram` are plain text here — no URL keyboard.
+  { key: 'twitter', label: 'Area of Interest', placeholder: 'AI, GTM, Vibe Coding…' },
+  { key: 'instagram', label: 'Educational Background', placeholder: 'BSc Computer Science, Stanford…' },
   {
-    key: 'member_types',
-    label: 'What you do',
-    placeholder: 'Founder, Investor',
-    // Comma-separated on purpose — that's the format the server stores.
+    key: 'favorite_resource',
+    label: 'Favorite Read / Video / Person / Source',
+    placeholder: 'Zero to One, Lex Fridman…',
+    multiline: true,
   },
-  { key: 'occupation_link', label: 'Company / work link', keyboardType: 'url' },
-  { key: 'linkedin', label: 'LinkedIn', keyboardType: 'url' },
-  { key: 'twitter', label: 'Twitter / X', keyboardType: 'url' },
-  { key: 'instagram', label: 'Instagram', keyboardType: 'url' },
-  { key: 'github', label: 'GitHub', keyboardType: 'url' },
-  // NOTE: no `website` field. The website column is repurposed to store the
-  // Refer a Friend payload (a JSON blob) — exposing it as an editable text box
-  // here would let a member wipe their referrals. See API.md → Refer a Friend.
-  { key: 'favorite_resource', label: 'Favorite resource' },
-  { key: 'phone', label: 'Phone', maxLength: 40, keyboardType: 'phone-pad' },
 ];
+
+// `member_types` is a pick-up-to-3 chip set on the website, not free text.
+const BACKGROUND_OPTIONS = ['Tech', 'Business', 'Design', 'Finance', 'Marketing', 'Strategy', 'Operations'];
+const MAX_BACKGROUNDS = 3;
 
 // Every text field starts as a string, so the form state is a flat map.
 type FormState = Record<string, string>;
@@ -75,14 +83,17 @@ function formFrom(member: SelfMember): FormState {
   const form: FormState = {};
   for (const field of FIELDS) {
     const value = member[field.key as keyof SelfMember];
-    // member_types can be an array on some accounts — join it back so the
-    // text box shows the same comma format the server expects on save.
-    form[field.key] = Array.isArray(value) ? value.join(', ') : value == null ? '' : String(value);
+    form[field.key] = value == null ? '' : String(value);
   }
+  // member_types can be an array on some accounts — join it back so it saves
+  // in the comma format the server stores.
+  const types = member.member_types;
+  form.member_types = Array.isArray(types) ? types.join(', ') : types == null ? '' : String(types);
   return form;
 }
 
 export default function ProfileScreen() {
+  const c = useThemeColors();
   const [member, setMember] = useState<SelfMember | null>(null);
   const [form, setForm] = useState<FormState>({});
   const [autoOptIn, setAutoOptIn] = useState(false);
@@ -104,7 +115,7 @@ export default function ProfileScreen() {
       setAutoOptIn(!!data.member.auto_opt_in);
       setError('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load profile.');
+      setError(readableError(e, 'Failed to load profile.'));
       return;
     }
     // Notification settings are a separate endpoint. A failure here isn't
@@ -137,12 +148,13 @@ export default function ProfileScreen() {
       for (const field of FIELDS) {
         (patch as Record<string, unknown>)[field.key] = form[field.key]?.trim() ?? '';
       }
+      patch.member_types = form.member_types?.trim() ?? '';
       const data = await updateProfile(patch);
       setMember(data.member);
       setForm(formFrom(data.member));
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed.');
+      setError(readableError(e, 'Save failed.'));
     } finally {
       setSaving(false);
     }
@@ -176,7 +188,7 @@ export default function ProfileScreen() {
       // new photo shows without a round trip.
       setMember((prev) => (prev ? { ...prev, avatar_url: url } : prev));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed.');
+      setError(readableError(e, 'Upload failed.'));
     } finally {
       setUploading(false);
     }
@@ -196,6 +208,15 @@ export default function ProfileScreen() {
     }
   }
 
+  function toggleBackground(option: string) {
+    const current = (form.member_types ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    let next: string[];
+    if (current.includes(option)) next = current.filter((s) => s !== option);
+    else if (current.length >= MAX_BACKGROUNDS) return; // cap, like the website
+    else next = [...current, option];
+    setForm((prev) => ({ ...prev, member_types: next.join(', ') }));
+  }
+
   function confirmSignOut() {
     Alert.alert('Sign out', 'You will need a new email code to sign back in.', [
       { text: 'Cancel', style: 'cancel' },
@@ -206,6 +227,11 @@ export default function ProfileScreen() {
   }
 
   if (loading) return <Loading />;
+
+  const selectedBackgrounds = (form.member_types ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return (
     <KeyboardAvoidingView
@@ -231,18 +257,58 @@ export default function ProfileScreen() {
               <Text className="text-[13px] font-semibold text-accent-link">Change photo</Text>
             )}
           </TouchableOpacity>
+          {member?.name ? (
+            <Text className="mt-2 text-[17px] font-bold text-body">{member.name}</Text>
+          ) : null}
           {member?.email ? (
-            <Text className="mt-2 text-[13px] text-faint">{member.email}</Text>
+            <Text className="mt-0.5 text-[13px] text-faint">{member.email}</Text>
           ) : null}
         </View>
 
         {error ? <ErrorNotice message={error} /> : null}
 
+        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
+          Appearance
+        </Text>
+        <ThemeSelector />
+
+        <View className="mb-2 mt-7 flex-row items-center justify-between">
+          <Text className="text-[12px] font-semibold uppercase tracking-wide text-faint">
+            Background
+          </Text>
+          <Text className="text-[11px] text-faint">Pick up to {MAX_BACKGROUNDS}</Text>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {BACKGROUND_OPTIONS.map((option) => {
+            const selected = selectedBackgrounds.includes(option);
+            const maxed = selectedBackgrounds.length >= MAX_BACKGROUNDS && !selected;
+            return (
+              <TouchableOpacity
+                key={option}
+                className={`rounded-full border px-3.5 py-2 ${
+                  selected
+                    ? 'border-brand-blue bg-brand-blue'
+                    : `border-hairline bg-surface ${maxed ? 'opacity-40' : ''}`
+                }`}
+                activeOpacity={0.8}
+                disabled={maxed || saving}
+                onPress={() => toggleBackground(option)}
+              >
+                <Text
+                  className={`text-[12px] font-medium ${
+                    selected ? 'text-brand-cream' : 'text-muted'
+                  }`}
+                >
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {FIELDS.map((field) => (
           <View key={String(field.key)}>
-            <Text className="mb-1.5 mt-4 text-[13px] font-semibold text-muted">
-              {field.label}
-            </Text>
+            <Text className="mb-1.5 mt-4 text-[13px] font-semibold text-muted">{field.label}</Text>
             <TextInput
               className={`rounded-xl border border-hairline bg-surface px-3.5 py-3 text-[15px] text-body ${
                 field.multiline ? 'h-24' : ''
@@ -261,11 +327,6 @@ export default function ProfileScreen() {
             />
           </View>
         ))}
-
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
-          Appearance
-        </Text>
-        <ThemeSelector />
 
         <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Weekly match
@@ -306,7 +367,9 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity className="mt-6 items-center py-2" onPress={confirmSignOut}>
-          <Text className="text-[15px] font-semibold text-red-600">Sign out</Text>
+          <Text className={`text-[15px] font-semibold ${c.isDark ? 'text-red-400' : 'text-red-600'}`}>
+            Sign out
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -314,9 +377,8 @@ export default function ProfileScreen() {
 }
 
 // Light / Dark / System, persisted to storage. Changing it calls NativeWind's
-// setColorScheme, which flips the whole app immediately (all the semantic
-// color tokens re-resolve). 'system' hands control back to the phone. Default
-// is dark; see lib/theme.ts and App.tsx.
+// setColorScheme, which flips every semantic color token at once. 'system'
+// hands control back to the phone. Default is dark — see lib/theme.ts.
 const THEME_OPTIONS: { key: ThemePref; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'light', label: 'Light', icon: 'sunny-outline' },
   { key: 'dark', label: 'Dark', icon: 'moon-outline' },
@@ -324,18 +386,8 @@ const THEME_OPTIONS: { key: ThemePref; label: string; icon: keyof typeof Ionicon
 ];
 
 function ThemeSelector() {
-  const { setColorScheme } = useColorScheme();
-  const [pref, setPref] = useState<ThemePref>('dark');
-
-  useEffect(() => {
-    loadThemePref().then(setPref);
-  }, []);
-
-  function choose(next: ThemePref) {
-    setPref(next);
-    setColorScheme(next);
-    saveThemePref(next);
-  }
+  const { pref, setPref } = useTheme();
+  const c = useThemeColors();
 
   return (
     <View className="flex-row gap-2 rounded-2xl border border-hairline bg-surface p-1.5">
@@ -348,13 +400,9 @@ function ThemeSelector() {
               active ? 'bg-brand-blue' : ''
             }`}
             activeOpacity={0.8}
-            onPress={() => choose(option.key)}
+            onPress={() => setPref(option.key)}
           >
-            <Ionicons
-              name={option.icon}
-              size={15}
-              color={active ? BRAND_CREAM : '#a1a1aa'}
-            />
+            <Ionicons name={option.icon} size={15} color={active ? BRAND_CREAM : c.faint} />
             <Text
               className={`text-[13px] font-semibold ${active ? 'text-brand-cream' : 'text-muted'}`}
             >
@@ -383,6 +431,7 @@ function Row({
   onChange: (value: boolean) => void;
   disabled?: boolean;
 }) {
+  const c = useThemeColors();
   return (
     <View className="mb-2 flex-row items-center rounded-xl border border-hairline bg-surface px-3.5 py-3">
       <View className="flex-1 pr-3">
@@ -393,7 +442,7 @@ function Row({
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ true: BRAND_BLUE, false: '#d4d4d8' }}
+        trackColor={{ true: BRAND_BLUE, false: c.hairline }}
       />
     </View>
   );

@@ -9,14 +9,18 @@
  * modifier keeps working (e.g. `bg-surface/50`). The semantic names are mapped
  * to these variables in tailwind.config.js; screens use only the semantic
  * classes, so a theme is one set of variables — no `dark:` variants sprinkled
- * around.
+ * around (the couple of legitimate exceptions read `isDark` from
+ * useThemeColors() directly instead, see components/Feedback.tsx).
  *
  * These `:root` values are the DARK palette on purpose: the app defaults to
- * dark, so painting dark on the very first frame avoids a light flash before
- * JS runs. At runtime App.tsx wraps the tree in a `vars()` provider (see
- * lib/theme.ts) that supplies the active theme's values — light or dark — and
- * re-applies instantly when the member switches. The provider is the source of
- * truth; this block only covers the first frame.
+ * dark, so painting dark here avoids a light flash before JS runs. At runtime
+ * App.tsx wraps the tree in a `vars()` provider (see lib/theme.tsx, driven by
+ * ThemeProvider's own React state — not NativeWind's colorScheme/`.dark`
+ * class toggle, which this app doesn't use) that supplies the active theme's
+ * values — light or dark — and re-applies instantly when the member switches.
+ * The provider is the source of truth for the whole tree from the very first
+ * render (its default state is already 'dark'); this block only covers
+ * anything rendered outside it, which in practice is nothing.
  */
 :root {
   --bg: 10 12 20; /* #0a0c14 */

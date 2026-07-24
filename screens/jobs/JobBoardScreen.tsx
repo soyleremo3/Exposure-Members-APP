@@ -9,8 +9,7 @@
 // Rows expand in place (no detail screen) to reveal the description, the
 // poster, and the actions: apply / refer for other people's posts, and
 // edit / close / delete / applicants for your own. Compose is an inline card
-// toggled by "Add post". Every write is blocked for read-only test accounts
-// (see API.md → read-only), so those 403s are swallowed and a banner explains.
+// toggled by "Add post".
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -40,9 +39,7 @@ import {
   getJobNotifications,
   getJobPosts,
   getProfile,
-  isReadOnlyError,
   readableError,
-  READ_ONLY_NOTICE,
   referMember,
   updateJobNotifications,
   updateJobPost,
@@ -58,7 +55,7 @@ import type {
   Member,
 } from '../../types';
 import Avatar from '../../components/Avatar';
-import { Empty, ErrorNotice, InfoNotice, Loading } from '../../components/Feedback';
+import { Empty, ErrorNotice, Loading } from '../../components/Feedback';
 
 // Only jobs have a location; blank means Online — same rule as the website.
 function displayLocation(post: JobPost): string {
@@ -76,7 +73,6 @@ export default function JobBoardScreen() {
   const [editingPost, setEditingPost] = useState<JobPost | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
-  const [readOnly, setReadOnly] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -94,14 +90,11 @@ export default function JobBoardScreen() {
     }, [load]),
   );
 
-  // The viewer's id (to exclude self from referral search) and whether they're
-  // a read-only tester. Best-effort — a failure here just leaves the defaults.
+  // The viewer's id, to exclude self from referral search. Best-effort — a
+  // failure here just leaves it null.
   useEffect(() => {
     getProfile()
-      .then((p) => {
-        setMeId(p.member.id);
-        setReadOnly(p.member.member_category === 'test');
-      })
+      .then((p) => setMeId(p.member.id))
       .catch(() => {});
   }, []);
 
@@ -177,12 +170,6 @@ export default function JobBoardScreen() {
                 Jobs and needs from Exposure founders.
               </Text>
 
-              {readOnly ? (
-                <View className="mt-4">
-                  <InfoNotice message={READ_ONLY_NOTICE} />
-                </View>
-              ) : null}
-
               <View className="mt-4 flex-row justify-end">
                 <TouchableOpacity
                   className="flex-row items-center gap-2 rounded-xl bg-brand-blue px-4 py-2.5"
@@ -194,7 +181,7 @@ export default function JobBoardScreen() {
                 </TouchableOpacity>
               </View>
 
-              <NotifyCard readOnly={readOnly} />
+              <NotifyCard />
 
               {formOpen ? (
                 <PostForm
@@ -266,7 +253,6 @@ export default function JobBoardScreen() {
             <PostRow
               post={item}
               me={meId}
-              readOnly={readOnly}
               expanded={expandedId === item.id}
               onToggle={() =>
                 setExpandedId((cur) => (cur === item.id ? null : item.id))
@@ -310,7 +296,7 @@ function LocationChip({
 
 // -------------------------------------------------------------- notifications
 
-function NotifyCard({ readOnly }: { readOnly: boolean }) {
+function NotifyCard() {
   const [sub, setSub] = useState<JobNotificationSettings | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -329,12 +315,8 @@ function NotifyCard({ readOnly }: { readOnly: boolean }) {
     try {
       const d = await updateJobNotifications({ [key]: next[key] });
       setSub(d.subscription);
-    } catch (e) {
-      setSub(previous); // revert; read-only or a real failure both roll back
-      if (!isReadOnlyError(e)) {
-        // A genuine failure — leave the toggle reverted. (No inline error slot
-        // here; the reverted switch is the signal.)
-      }
+    } catch {
+      setSub(previous); // revert on failure (no inline error slot here — the reverted switch is the signal)
     } finally {
       setSaving(false);
     }
@@ -352,7 +334,7 @@ function NotifyCard({ readOnly }: { readOnly: boolean }) {
             : 'Skip checking back — get notified when a new job is posted.'
         }
         enabled={sub.notify_jobs}
-        disabled={saving || readOnly}
+        disabled={saving}
         onToggle={() => toggle('notify_jobs')}
       />
       <View className="my-4 h-px bg-black/5" />
@@ -364,7 +346,7 @@ function NotifyCard({ readOnly }: { readOnly: boolean }) {
             : 'Get notified when a member posts something they need.'
         }
         enabled={sub.notify_needs}
-        disabled={saving || readOnly}
+        disabled={saving}
         onToggle={() => toggle('notify_needs')}
       />
     </View>
@@ -431,10 +413,6 @@ function PostForm({
       else await createJobPost(draft);
       onSaved();
     } catch (e) {
-      if (isReadOnlyError(e)) {
-        setError(READ_ONLY_NOTICE);
-        return;
-      }
       setError(readableError(e));
     } finally {
       setSaving(false);
@@ -537,7 +515,6 @@ function Field({
 function PostRow({
   post,
   me,
-  readOnly,
   expanded,
   onToggle,
   onEdit,
@@ -545,7 +522,6 @@ function PostRow({
 }: {
   post: JobPost;
   me: string | null;
-  readOnly: boolean;
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -585,7 +561,7 @@ function PostRow({
       </TouchableOpacity>
 
       {expanded ? (
-        <PostDetails post={post} me={me} readOnly={readOnly} onEdit={onEdit} onChanged={onChanged} />
+        <PostDetails post={post} me={me} onEdit={onEdit} onChanged={onChanged} />
       ) : null}
     </View>
   );
@@ -630,13 +606,11 @@ function DescriptionText({ text }: { text: string }) {
 function PostDetails({
   post,
   me,
-  readOnly,
   onEdit,
   onChanged,
 }: {
   post: JobPost;
   me: string | null;
-  readOnly: boolean;
   onEdit: () => void;
   onChanged: () => void;
 }) {
@@ -675,7 +649,7 @@ function PostDetails({
       await fn();
       onChanged();
     } catch (e) {
-      if (!isReadOnlyError(e)) setError(readableError(e, failMsg));
+      setError(readableError(e, failMsg));
     } finally {
       setWorking(false);
     }
@@ -715,8 +689,6 @@ function PostDetails({
           ) : null}
         </View>
       ) : null}
-
-      {readOnly ? <View className="mt-5"><InfoNotice message={READ_ONLY_NOTICE} /></View> : null}
 
       {/* Someone else's post: apply / refer */}
       {!post.is_own ? (
@@ -918,10 +890,6 @@ function ApplyPanel({
       await applyToJob(postId, { pitch, link });
       onApplied();
     } catch (e) {
-      if (isReadOnlyError(e)) {
-        setError(READ_ONLY_NOTICE);
-        return;
-      }
       setError(readableError(e, 'Could not submit your application'));
     } finally {
       setSaving(false);
@@ -1041,10 +1009,6 @@ function ReferPanel({
       setDone(true);
       onReferred();
     } catch (e) {
-      if (isReadOnlyError(e)) {
-        setError(READ_ONLY_NOTICE);
-        return;
-      }
       setError(readableError(e, 'Could not send the referral'));
     } finally {
       setSaving(false);
