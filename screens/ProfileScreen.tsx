@@ -23,7 +23,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -31,19 +30,12 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  getJobNotifications,
-  getProfile,
-  readableError,
-  updateJobNotifications,
-  updateProfile,
-  uploadAvatar,
-} from '../lib/api';
+import { getProfile, readableError, updateProfile, uploadAvatar } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatMonthYear } from '../lib/format';
 import { BRAND_BLUE, BRAND_CREAM, useTheme, useThemeColors } from '../lib/theme';
 import type { ThemePref } from '../lib/theme';
-import type { JobNotificationSettings, ProfilePatch, SelfMember } from '../types';
+import type { ProfilePatch, SelfMember } from '../types';
 import Avatar from '../components/Avatar';
 import { ErrorNotice, Loading } from '../components/Feedback';
 
@@ -121,11 +113,6 @@ export default function ProfileScreen() {
   const c = useThemeColors();
   const [member, setMember] = useState<SelfMember | null>(null);
   const [form, setForm] = useState<FormState>({});
-  const [autoOptIn, setAutoOptIn] = useState(false);
-  const [notify, setNotify] = useState<JobNotificationSettings>({
-    notify_jobs: false,
-    notify_needs: false,
-  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -137,19 +124,9 @@ export default function ProfileScreen() {
       const data = await getProfile();
       setMember(data.member);
       setForm(formFrom(data.member));
-      setAutoOptIn(!!data.member.auto_opt_in);
       setError('');
     } catch (e) {
       setError(readableError(e, 'Failed to load profile.'));
-      return;
-    }
-    // Notification settings are a separate endpoint. A failure here isn't
-    // worth blocking the whole screen for — the switches just stay off.
-    try {
-      const data = await getJobNotifications();
-      setNotify(data.subscription);
-    } catch {
-      // ignore
     }
   }, []);
 
@@ -169,7 +146,7 @@ export default function ProfileScreen() {
     try {
       // Send "" for cleared fields — the API treats empty string as "clear
       // this", which is what an emptied text box should mean.
-      const patch: ProfilePatch = { auto_opt_in: autoOptIn };
+      const patch: ProfilePatch = {};
       for (const field of ALL_FIELDS) {
         (patch as Record<string, unknown>)[field.key] = form[field.key]?.trim() ?? '';
       }
@@ -220,20 +197,6 @@ export default function ProfileScreen() {
       setError(readableError(e, 'Upload failed.'));
     } finally {
       setUploading(false);
-    }
-  }
-
-  // Write the switch through immediately — a settings toggle that needs a
-  // separate "save" is a toggle people forget to save.
-  async function toggleNotify(key: keyof JobNotificationSettings, value: boolean) {
-    const previous = notify;
-    setNotify({ ...notify, [key]: value });
-    try {
-      const data = await updateJobNotifications({ [key]: value });
-      setNotify(data.subscription);
-    } catch {
-      setNotify(previous);
-      setError('Could not update notification settings.');
     }
   }
 
@@ -384,31 +347,6 @@ export default function ProfileScreen() {
           />
         </Card>
 
-        <Text className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-faint">
-          Weekly match
-        </Text>
-        <Row
-          label="Join every week automatically"
-          hint="You'll be entered into each new matching round without opting in."
-          value={autoOptIn}
-          onChange={setAutoOptIn}
-          disabled={saving}
-        />
-
-        <Text className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-faint">
-          Job board emails
-        </Text>
-        <Row
-          label="New job posts"
-          value={notify.notify_jobs}
-          onChange={(v) => toggleNotify('notify_jobs', v)}
-        />
-        <Row
-          label="New help requests"
-          value={notify.notify_needs}
-          onChange={(v) => toggleNotify('notify_needs', v)}
-        />
-
         <TouchableOpacity className="mt-6 items-center py-2" onPress={confirmSignOut}>
           <Text className={`text-[15px] font-semibold ${c.isDark ? 'text-red-400' : 'text-red-600'}`}>
             Sign out
@@ -536,39 +474,6 @@ function ThemeSelector() {
           </TouchableOpacity>
         );
       })}
-    </View>
-  );
-}
-
-// A labelled switch row. The `auto_opt_in` one saves with the form; the
-// notification ones save on toggle — hence the shared shape but separate
-// handlers above.
-function Row({
-  label,
-  hint,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  hint?: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-  disabled?: boolean;
-}) {
-  const c = useThemeColors();
-  return (
-    <View className="mb-2 flex-row items-center rounded-xl border border-hairline bg-surface px-3.5 py-3">
-      <View className="flex-1 pr-3">
-        <Text className="text-[15px] text-body">{label}</Text>
-        {hint ? <Text className="mt-0.5 text-[12px] text-faint">{hint}</Text> : null}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        trackColor={{ true: BRAND_BLUE, false: c.hairline }}
-      />
     </View>
   );
 }

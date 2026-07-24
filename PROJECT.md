@@ -233,6 +233,57 @@ hatasız. **Cihazda henüz görülmedi** — kullanıcının Expo Go'da Login ek
 "Apply to join" linkini deneyip gerçek bir test başvurusuyla formu göndermesi
 gerekiyor.
 
+### 4.15 Profile'daki `auto_opt_in` + job-board bildirim kopyaları kaldırıldı — **2026-07-24**
+
+Ekran kaydı videosuyla Profile'daki üç anahtarın (Weekly Match "Join every week
+automatically", Job Board Emails "New job posts"/"New help requests") tuhaf
+davrandığı fark edildi. Önceki (sadece tespit) görev şunu doğrulamıştı:
+
+1. **`auto_opt_in`** iki bağımsız kopyaya sahipti: `MatchScreen.tsx` anlık
+   yazıyordu (`toggleAuto` → `updateProfile`, doğru), `ProfileScreen.tsx`ki
+   kopya ise sadece local state tutuyordu — sunucuya ancak "Save changes"
+   basılınca, diğer tüm profil alanlarıyla paketlenip gidiyordu, VE ekran
+   mount olduğunda (`useEffect`, `useFocusEffect` değil) tek seferlik çektiği
+   bayat değeri kullanıyordu. Sonuç: kullanıcı Match'te anahtarı açar,
+   Profile'a geçer (zaten mount'lu, hafızada eski değer), başka bir alanı
+   değiştirip Save'e basarsa, Profile'ın bayat `auto_opt_in`'i sessizce geri
+   yazılıp Match'teki değişikliği ezerdi. **Sessiz veri kaybı, hiçbir uyarı
+   yok.**
+2. **Job-board bildirimleri** (`notify_jobs`/`notify_needs`) de iki bağımsız
+   kopyaya sahipti (`JobBoardScreen.tsx`'teki `NotifyCard` + `ProfileScreen.tsx`),
+   ikisi de aynı optimistic-set → PATCH/PUT → hata olursa geri al deseni.
+   Video'daki "titreme" bunun sonucuydu — kullanıcının hesabı
+   `member_category: 'test'` (salt-okunur, §4.11), her yazma 403 dönüyor,
+   anahtar anlık açılıp sonra eski haline fırlıyordu. İki kopya olması
+   titremenin sebebi değildi, aynı hatayı iki yerde tekrarlıyordu sadece.
+
+**Karar (kullanıcı onayladı):** Match ekranı `auto_opt_in`'in, Job Board ekranı
+da bildirim tercihlerinin **tek sahibi**. Profile'daki iki kopya tamamen
+kaldırıldı — koşullu gizleme değil, tam silme:
+
+- `ProfileScreen.tsx`: "Weekly match" bölümü + `autoOptIn` state + `save()`
+  payload'ından `auto_opt_in` alanı kaldırıldı.
+- `ProfileScreen.tsx`: "Job board emails" bölümü + `notify` state +
+  `toggleNotify()` + `load()` içindeki `getJobNotifications()` çağrısı
+  kaldırıldı.
+- Artık kullanılmayan `Row` bileşeni (sadece bu iki anahtar için vardı) ve
+  `Switch`/`getJobNotifications`/`updateJobNotifications`/
+  `JobNotificationSettings` import'ları temizlendi.
+- Silme sonrası düzen kontrol edildi: Membership kartı doğrudan Sign out'a
+  bağlanıyor, yetim başlık/margin kalmadı.
+
+**`JobBoardScreen.tsx`'teki `NotifyCard` incelendi:** 403'te (revert-on-catch)
+kullanıcıya görünür hata mesajı **gösterilmiyordu** — sessizce eski değere
+dönüyordu (kod içinde bunu itiraf eden bir yorum vardı: *"no inline error
+slot here — the reverted switch is the signal"*). Uygulama genelinde diğer
+yazma hatalarında kullanılan standart `readableError`/`ErrorNotice` deseniyle
+küçük bir hata şeridi eklendi (kartın üstünde, diğer ekranlardaki
+`ErrorNotice` kullanımıyla aynı konvansiyon) — özel/gizli bir mantık değil.
+
+**Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18. **Cihazda henüz
+görülmedi** — kullanıcının Expo Go'da Match/Job Board'un tek sahip davrandığını
+ve Profile'da bu üç anahtarın artık hiç görünmediğini onaylaması gerekiyor.
+
 ### 4.11 Test hesapları salt-okunur (403) — backend davranışı sabit, client özel işleme **kaldırıldı (2026-07-24)**
 
 Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-only yapıyor: `/api/members/*`'a **her GET olmayan istek 403 `{ error: "Test accounts are read-only" }`** dönüyor. Bunlar mobil test hesapları (kullanıcının `varrochannel@gmail.com` hesabı dahil) — bilinçli davranış, bug değil. Bu backend kuralı **hâlâ geçerli**, değişen sadece uygulamanın buna nasıl tepki verdiği.
@@ -251,11 +302,11 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 | Başvuru (Apply) | `screens/ApplyScreen.tsx` | **Eklendi (2026-07-24), gerçek backend kurallarına göre yazıldı, telefon onayı bekliyor** | `POST /api/applications` (auth yok) |
 | Üye Rehberi | `screens/DirectoryScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | `GET /directory` |
 | Üye Detayı | `screens/MemberDetailScreen.tsx` | **Web'e hizalandı, telefonda onaylandı (2026-07-23)** | — (route param) |
-| İş İlanları (tek ekran) | `screens/jobs/JobBoardScreen.tsx` | **Web modeline çevrildi (inline aç/başvur/öner/başvuranlar), telefon onayı bekliyor** | `GET`/`POST`/`PATCH`/`DELETE /job-board(/[id])`, `.../apply`, `.../refer`, `.../applications`, notifications |
-| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
+| İş İlanları (tek ekran) | `screens/jobs/JobBoardScreen.tsx` | **Web modeline çevrildi (inline aç/başvur/öner/başvuranlar), job-board bildirimlerinin tek sahibi — doğrulandı (2026-07-24, §4.15), 403'te artık görünür hata var, telefon onayı bekliyor** | `GET`/`POST`/`PATCH`/`DELETE /job-board(/[id])`, `.../apply`, `.../refer`, `.../applications`, notifications |
+| Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar), `auto_opt_in`'in tek sahibi — doğrulandı (2026-07-24, §4.15), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
 | Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Eklendi + nokta, telefonda onaylandı (2026-07-23)** | `GET`/`PATCH /profile` (`website` alanı) |
-| Profil | `screens/ProfileScreen.tsx` | **Web'in 3 kartlı düzenine hizalandı (Account/Edit Profile/Membership), telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
+| Profil | `screens/ProfileScreen.tsx` | **Web'in 3 kartlı düzenine hizalandı (Account/Edit Profile/Membership); `auto_opt_in` ve job-board bildirim kopyaları kaldırıldı (2026-07-24, §4.15) — artık Match/Job Board'un tekelinde, telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar` |
 | Global tema (Dark/Light/System) | `lib/theme.tsx`, `global.css`, `tailwind.config.js`, `App.tsx` | **Kuruldu (varsayılan Dark), 2026-07-24 kök neden bulunup düzeltildi (bkz. §4.13), telefon onayı bekliyor** | — |
 | Keşfet → Community Brain | — | **Yapılmadı** (sıradaki adım — "Coming Soon", allowlist'te değiliz) | `/community-graph`, `/brain-query*` |
 
@@ -272,6 +323,7 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 4. **Avatar yükleme** (`POST /upload-avatar`) gerçek bir dosyayla test edilmedi. `multipart/form-data`, alan adı `file`, max 5 MB, JPG/PNG/WEBP.
 5. **`share_token`** alanı `JobPost` tipinde var ama hiçbir yerde kullanılmıyor. İlan paylaşma özelliği istenirse buradan devam edilir.
 6. **Test hesabı `member_category`'si — sonra kesin halledilecek (kullanıcı 2026-07-23).** `varrochannel@gmail.com` `test` kategorisinde, yazma yapamıyor (§4.11). Web ekibine iletilecek: kategori `founder`/`explorer`/`first_batch` veya boş yapılırsa yazma açılır (Match için ayrıca `subscription_status = active` + `onboarding_complete = true`). Denge: `test` kalkınca hesap gerçek üye olur (rehberde görünür, referral gerçek mail atar, match gerçek eşleştirir). Ayarlanınca Auto opt-in vb. gerçek cihazda test edilecek.
+7. **Planlanan push notification akışı — kapsam dışı, ayrı görev (not düşüldü 2026-07-24).** Kullanıcının planı: (a) Pazar günü saat 12:00'de tüm üyelere "opt-in ol" hatırlatma push'ı — `auto_opt_in`'e gerek kalmadan üyenin elle opt-in yapması için; (b) Pazartesi admin portalından eşleştirme bitince manuel tetiklenen "şu kişiyle eşleştiniz" push'ı. İkisi de bugünkü §4.15 temizliğinin kapsamı dışında — sadece kaybolmasın diye not, kod değişikliği yapılmadı.
 
 **Cevaplananlar:** arayüz dili (→ İngilizce, §4.7) · commit dili (→ İngilizce, §4.8) · web'in 3 profil kolonunu farklı kullanması (→ §4.10) · test hesabı 403 davranışı (→ §4.11)
 
@@ -280,6 +332,48 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-07-24 — Profile'daki `auto_opt_in` + job-board bildirim kopyaları kaldırıldı
+
+Yeni session. Kullanıcı bir ekran kaydı videosuyla Profile'daki üç anahtarın
+(Weekly Match "Join every week automatically" + Job Board Emails "New job
+posts"/"New help requests") tuhaf davrandığını gösterdi. Önceki (kod
+değişikliği yapmayan, sadece tespit eden) bir görevde kök neden zaten
+bulunmuştu: `auto_opt_in` ve job-board bildirimlerinin her ikisinin de
+Profile'da MatchScreen/JobBoardScreen'den bağımsız ikinci bir kopyası vardı —
+`auto_opt_in` kopyası bayat state + büyük Save butonuyla sessiz stale-overwrite
+riski taşıyordu, bildirim kopyası ise video'daki titremeyi açıklayan asıl
+sebep değil (o kullanıcının `member_category: 'test'` hesabının her yazmada
+403 alması), sadece aynı hatayı ikinci kez tekrarlıyordu. Tam analiz §4.15'te.
+
+**Ne yapıldı:**
+
+1. `ProfileScreen.tsx`'ten `auto_opt_in` kopyası tamamen kaldırıldı: "Weekly
+   match" bölümü, `autoOptIn` state, `save()`'in gönderdiği payload'daki
+   `auto_opt_in` alanı.
+2. `ProfileScreen.tsx`'ten job-board bildirim kopyası tamamen kaldırıldı:
+   "Job board emails" bölümü, `notify` state, `toggleNotify()`,
+   `load()` içindeki `getJobNotifications()` çağrısı.
+3. Artık kullanılmayan `Row` bileşeni (sadece bu iki anahtar için vardı) ve
+   `Switch`/`getJobNotifications`/`updateJobNotifications`/
+   `JobNotificationSettings` import'ları temizlendi. Silme sonrası düzen
+   kontrol edildi — Membership kartı doğrudan Sign out'a bağlanıyor, yetim
+   başlık/margin yok.
+4. `JobBoardScreen.tsx`'teki `NotifyCard`'ın catch bloğu incelendi: 403'te
+   sessizce eski değere dönüyordu, kullanıcıya görünür hata yoktu (kod
+   bunu itiraf eden bir yorumla işaretliydi). Uygulama genelinde diğer yazma
+   hatalarında kullanılan standart `readableError`/`ErrorNotice` deseniyle
+   küçük bir hata şeridi eklendi.
+5. PROJECT.md §4 (4.14 yeni madde), §5 (Profile/Match/Job Board satırları),
+   §6 (yeni açık soru: planlanan push notification akışı, kapsam dışı)
+   güncellendi.
+
+**Doğrulama:** `tsc --noEmit` temiz, `expo-doctor` 18/18. Emülatör/build
+gerektiren bir şey yapılmadı. **Cihazda henüz görülmedi** — kullanıcının Expo
+Go'da Match/Job Board ekranlarının tek sahip davrandığını, Profile'da bu üç
+anahtarın artık hiç görünmediğini, ve test hesabıyla bir bildirim anahtarına
+dokununca artık kırmızı bir hata şeridi çıktığını onaylaması gerekiyor. Commit
+**atılmadı** (§8).
 
 ### 2026-07-24 — Apply (başvuru) ekranı native olarak eklendi, kapsam güncellendi
 

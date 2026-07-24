@@ -299,6 +299,7 @@ function LocationChip({
 function NotifyCard() {
   const [sub, setSub] = useState<JobNotificationSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     getJobNotifications()
@@ -312,11 +313,13 @@ function NotifyCard() {
     const next = { ...sub, [key]: !sub[key] };
     setSub(next);
     setSaving(true);
+    setError('');
     try {
       const d = await updateJobNotifications({ [key]: next[key] });
       setSub(d.subscription);
-    } catch {
-      setSub(previous); // revert on failure (no inline error slot here — the reverted switch is the signal)
+    } catch (e) {
+      setSub(previous);
+      setError(readableError(e, 'Could not update notification settings'));
     } finally {
       setSaving(false);
     }
@@ -325,31 +328,38 @@ function NotifyCard() {
   if (!sub) return null;
 
   return (
-    <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5">
-      <NotifyToggle
-        label="Email me about new jobs"
-        description={
-          sub.notify_jobs
-            ? "You'll get an email when a member posts a new job."
-            : 'Skip checking back — get notified when a new job is posted.'
-        }
-        enabled={sub.notify_jobs}
-        disabled={saving}
-        onToggle={() => toggle('notify_jobs')}
-      />
-      <View className="my-4 h-px bg-black/5" />
-      <NotifyToggle
-        label="Email me about new needs"
-        description={
-          sub.notify_needs
-            ? "You'll get an email when a member posts a new need."
-            : 'Get notified when a member posts something they need.'
-        }
-        enabled={sub.notify_needs}
-        disabled={saving}
-        onToggle={() => toggle('notify_needs')}
-      />
-    </View>
+    <>
+      {error ? (
+        <View className="mt-4">
+          <ErrorNotice message={error} />
+        </View>
+      ) : null}
+      <View className="mt-4 rounded-2xl border border-hairline bg-surface p-5">
+        <NotifyToggle
+          label="Email me about new jobs"
+          description={
+            sub.notify_jobs
+              ? "You'll get an email when a member posts a new job."
+              : 'Skip checking back — get notified when a new job is posted.'
+          }
+          enabled={sub.notify_jobs}
+          disabled={saving}
+          onToggle={() => toggle('notify_jobs')}
+        />
+        <View className="my-4 h-px bg-black/5" />
+        <NotifyToggle
+          label="Email me about new needs"
+          description={
+            sub.notify_needs
+              ? "You'll get an email when a member posts a new need."
+              : 'Get notified when a member posts something they need.'
+          }
+          enabled={sub.notify_needs}
+          disabled={saving}
+          onToggle={() => toggle('notify_needs')}
+        />
+      </View>
+    </>
   );
 }
 
