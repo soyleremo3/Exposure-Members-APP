@@ -61,6 +61,14 @@ export function formatDate(raw: string | null | undefined): string {
   });
 }
 
+// "July 2026" — used for Membership → Member since. Month spelled out, no day.
+export function formatMonthYear(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
 // "3 gün önce" style relative time for job posts and match history.
 export function timeAgo(raw: string | null | undefined): string {
   if (!raw) return '';

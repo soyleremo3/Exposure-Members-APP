@@ -196,7 +196,7 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 | Haftalık Eşleştirme | `screens/MatchScreen.tsx` | **Web'e hizalandı (tüm durumlar), telefon onayı bekliyor** | `GET`/`POST /match`, `GET`/`PATCH /profile` |
 | Keşfet (Events/Links/Newsletter/YouTube) | `screens/DiscoverScreen.tsx` | **Web'e hizalandı + event görsel galerisi, telefonda onaylandı (2026-07-23)** | `GET /events`, `/links`, `/newsletter`, `/youtube` |
 | Keşfet → Refer a Friend | `screens/DiscoverScreen.tsx` | **Eklendi + nokta, telefonda onaylandı (2026-07-23)** | `GET`/`PATCH /profile` (`website` alanı) |
-| Profil | `screens/ProfileScreen.tsx` | **Appearance (tema) seçici eklendi ve düzeltildi; website alanı kaldırıldı; read-only test hesabı banner'ı tamamen kaldırıldı; telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
+| Profil | `screens/ProfileScreen.tsx` | **Web'in 3 kartlı düzenine hizalandı (Account/Edit Profile/Membership), telefon onayı bekliyor** | `GET`/`PATCH /profile`, `POST /upload-avatar`, `GET`/`PUT /job-board/notifications` |
 | Global tema (Dark/Light/System) | `lib/theme.tsx`, `global.css`, `tailwind.config.js`, `App.tsx` | **Kuruldu (varsayılan Dark), 2026-07-24 kök neden bulunup düzeltildi (bkz. §4.13), telefon onayı bekliyor** | — |
 | Keşfet → Community Brain | — | **Yapılmadı** (sıradaki adım — "Coming Soon", allowlist'te değiliz) | `/community-graph`, `/brain-query*` |
 
@@ -221,6 +221,21 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-07-24 — Profile ekranı web'in 3 kartlı düzenine hizalandı
+
+Kullanıcı web sitesinin profil sayfasının (dark mode, 375px) 2 ekran görüntüsünü verdi. `screens/ProfileScreen.tsx` yeniden yapılandırıldı — sıra ve alanlar ekran görüntüsüyle birebir:
+
+- **Account kartı**: avatar (tıklayınca fotoğraf değiştir, mevcut davranış aynı), isim, email, sağda `subscription_status === 'active'` ise yeşil nokta + "Active" rozeti; başka bir değer gelirse backend'in metni **olduğu gibi** gösteriliyor (tahmin edilmedi).
+- **Edit Profile kartı**: Background chip seçici (sağ üstte "Pick up to 3", 3. seçilince kalanlar `opacity-40`) → Full Name/Location (2 kolon) → Phone/LinkedIn (2 kolon) → GitHub (tek kolon) → Current Occupation (çok satırlı) → Relevant Link (Optional)/Area of Interest (2 kolon) → Educational Background (tek kolon) → Favorite Read/Video/Person/Source (çok satırlı) → Save changes. Alan-kolon eşlemesi `FIELD_ROWS` dizisiyle sürülüyor (satır uzunluğu 1 veya 2 → layout). Alan→kolon eşlemesi API.md/PROJECT.md §4.10'da zaten doğrulanmıştı (`bio`→Current Occupation, `twitter`→Area of Interest, `instagram`→Educational Background, `occupation_link`→Relevant Link, `favorite_resource`→Favorite Read/...), değişmedi.
+- **Membership kartı**: Status/Plan/Member since. Plan = `member_category`, Member since = `created_at` → yeni `formatMonthYear()` (`lib/format.ts`) ile "July 2026" formatında. İkisi de backend değerini ham gösteriyor, eşleme uyduruldu denemedi.
+- **Appearance (Dark/Light/System) seçici SİLİNMEDİ** — Account kartının hemen altına, kendi başlığıyla taşındı (§4.13'teki mekanizmaya dokunulmadı).
+- **Kapsam dışı bırakıldı (kullanıcı talimatı):** "API Tokens" kartı ve "Community Brain" kartı (Search network + Exposure/RCEB toggle) — web'de var, App'e bilinçli olarak eklenmedi. Community Brain zaten §1'de kapsam dışıydı.
+- **"Manage subscription" linki eklenmedi** — §3 madde 1 kesin kural, Membership kartı sadece üç satırdan ibaret.
+- Job board email bildirimleri ve read-only test hesabı davranışı (§4.11) **dokunulmadan** kaldı — bildirim UI'ı yeni kart diline göre restyle edildi (`bg-surface-2` input/chip konvansiyonu, JobBoardScreen'deki mevcut desenle aynı), özel banner/mantık eklenmedi.
+- **Not/varsayım:** `member_types` PATCH'i hâlâ virgülle ayrılmış string olarak gönderiliyor (GET'in döndürdüğü format). API.md PATCH şeklini net belirtmiyor — bu bir tahmin, kod içinde yorumla işaretlendi. Gerçek hesapta 400 alınırsa diziye çevrilip API.md güncellenmeli.
+- **Doğrulama:** `tsc --noEmit` temiz, `npx expo-doctor` 18/18, `npx expo export --platform ios` hatasız (1339 modül). **Cihazda henüz görülmedi** — kullanıcının Expo Go'da üç kartı ve özellikle Background chip/2-kolon alan davranışını onaylaması gerekiyor.
+- Commit **atılmadı** (§8).
 
 ### 2026-07-24 — Test hesabı doğrulaması, read-only banner kaldırma, tema toggle kök neden + düzeltme
 

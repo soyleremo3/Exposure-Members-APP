@@ -1,11 +1,13 @@
 // Your own profile: photo, editable fields, appearance, notifications, sign out.
+// Laid out as three cards matching the website's profile page (Account, Edit
+// Profile, Membership) — see PROJECT.md §5 for the screenshot reference.
 //
 // IMPORTANT — App Store rule: NO subscription, billing, or payment UI in
 // this app, ever. Apple requires in-app purchases to go through their IAP
 // system (with their 30% cut), and even LINKING to an external payment page
 // can get the app rejected. Membership and billing live on the website only.
-// Do not add "manage subscription", prices, or Stripe links here. (The website
-// shows a membership card here; it is deliberately absent in the app.)
+// Do not add "manage subscription", prices, or Stripe links here. The
+// Membership card below deliberately stops at Status/Plan/Member since.
 //
 // The field labels below are NOT the column names. This backend reuses three
 // columns for something else entirely — `bio` holds the current occupation,
@@ -13,6 +15,7 @@
 // the labels match the website's form, not the database. `website` is absent
 // on purpose: it stores the Refer a Friend payload. See API.md → Profile.
 import { useCallback, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -37,40 +40,62 @@ import {
   uploadAvatar,
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { formatMonthYear } from '../lib/format';
 import { BRAND_BLUE, BRAND_CREAM, useTheme, useThemeColors } from '../lib/theme';
 import type { ThemePref } from '../lib/theme';
 import type { JobNotificationSettings, ProfilePatch, SelfMember } from '../types';
 import Avatar from '../components/Avatar';
 import { ErrorNotice, Loading } from '../components/Feedback';
 
-// The editable text fields, in the website's order and with its labels.
-// `key` must be a field PATCH /api/members/profile accepts.
-const FIELDS: {
+type FieldDef = {
   key: keyof ProfilePatch;
   label: string;
   placeholder: string;
   multiline?: boolean;
   maxLength?: number;
   keyboardType?: 'default' | 'phone-pad' | 'url';
-}[] = [
-  { key: 'name', label: 'Full Name', placeholder: 'Your name', maxLength: 120 },
-  { key: 'location', label: 'Location', placeholder: 'Istanbul, Turkey' },
-  { key: 'phone', label: 'Phone', placeholder: '+90 555 000 00 00', maxLength: 40, keyboardType: 'phone-pad' },
-  { key: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/...', keyboardType: 'url' },
-  { key: 'github', label: 'GitHub', placeholder: 'github.com/...', keyboardType: 'url' },
+};
+
+// Rows drive the Edit Profile layout: a row with two fields renders as two
+// columns, a row with one spans the full width — matching the website's form.
+const FIELD_ROWS: FieldDef[][] = [
+  [
+    { key: 'name', label: 'Full Name', placeholder: 'Your name', maxLength: 120 },
+    { key: 'location', label: 'Location', placeholder: 'Istanbul, Turkey' },
+  ],
+  [
+    { key: 'phone', label: 'Phone', placeholder: '+90 555 000 00 00', maxLength: 40, keyboardType: 'phone-pad' },
+    { key: 'linkedin', label: 'LinkedIn', placeholder: 'linkedin.com/in/...', keyboardType: 'url' },
+  ],
+  [{ key: 'github', label: 'GitHub', placeholder: 'github.com/...', keyboardType: 'url' }],
   // `bio` — the occupation, not a life story. 280 chars server-side.
-  { key: 'bio', label: 'Current Occupation', placeholder: 'Building a SaaS product…', multiline: true, maxLength: 280 },
-  { key: 'occupation_link', label: 'Relevant Link (optional)', placeholder: 'yourproduct.com', keyboardType: 'url' },
-  // `twitter` and `instagram` are plain text here — no URL keyboard.
-  { key: 'twitter', label: 'Area of Interest', placeholder: 'AI, GTM, Vibe Coding…' },
-  { key: 'instagram', label: 'Educational Background', placeholder: 'BSc Computer Science, Stanford…' },
-  {
-    key: 'favorite_resource',
-    label: 'Favorite Read / Video / Person / Source',
-    placeholder: 'Zero to One, Lex Fridman…',
-    multiline: true,
-  },
+  [
+    {
+      key: 'bio',
+      label: 'Current Occupation',
+      placeholder: 'Building a SaaS product…',
+      multiline: true,
+      maxLength: 280,
+    },
+  ],
+  [
+    { key: 'occupation_link', label: 'Relevant Link (optional)', placeholder: 'yourproduct.com', keyboardType: 'url' },
+    // `twitter` is plain text here — no URL keyboard.
+    { key: 'twitter', label: 'Area of Interest', placeholder: 'AI, GTM, Vibe Coding…' },
+  ],
+  // `instagram` is plain text here — no URL keyboard.
+  [{ key: 'instagram', label: 'Educational Background', placeholder: 'BSc Computer Science, Stanford…' }],
+  [
+    {
+      key: 'favorite_resource',
+      label: 'Favorite Read / Video / Person / Source',
+      placeholder: 'Zero to One, Lex Fridman…',
+      multiline: true,
+    },
+  ],
 ];
+
+const ALL_FIELDS = FIELD_ROWS.flat();
 
 // `member_types` is a pick-up-to-3 chip set on the website, not free text.
 const BACKGROUND_OPTIONS = ['Tech', 'Business', 'Design', 'Finance', 'Marketing', 'Strategy', 'Operations'];
@@ -81,7 +106,7 @@ type FormState = Record<string, string>;
 
 function formFrom(member: SelfMember): FormState {
   const form: FormState = {};
-  for (const field of FIELDS) {
+  for (const field of ALL_FIELDS) {
     const value = member[field.key as keyof SelfMember];
     form[field.key] = value == null ? '' : String(value);
   }
@@ -145,9 +170,13 @@ export default function ProfileScreen() {
       // Send "" for cleared fields — the API treats empty string as "clear
       // this", which is what an emptied text box should mean.
       const patch: ProfilePatch = { auto_opt_in: autoOptIn };
-      for (const field of FIELDS) {
+      for (const field of ALL_FIELDS) {
         (patch as Record<string, unknown>)[field.key] = form[field.key]?.trim() ?? '';
       }
+      // member_types: API.md doesn't document the PATCH shape, only that GET
+      // returns a comma-separated string (see PROJECT.md §4.3). Sending it
+      // back as that same string is an assumption, not a confirmed contract —
+      // if this 400s on a real account, switch to an array and update API.md.
       patch.member_types = form.member_types?.trim() ?? '';
       const data = await updateProfile(patch);
       setMember(data.member);
@@ -246,89 +275,116 @@ export default function ProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_BLUE} />
         }
       >
-        <View className="items-center">
-          <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8} disabled={uploading}>
-            <Avatar uri={member?.avatar_url} name={member?.name} size={96} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={pickAvatar} disabled={uploading} className="mt-2">
+        {/* ACCOUNT */}
+        <Card>
+          <View className="flex-row items-center">
+            <TouchableOpacity onPress={pickAvatar} activeOpacity={0.8} disabled={uploading}>
+              <Avatar uri={member?.avatar_url} name={member?.name} size={56} />
+            </TouchableOpacity>
+            <View className="ml-3 flex-1">
+              <Text numberOfLines={1} className="text-[16px] font-bold text-body">
+                {member?.name || '—'}
+              </Text>
+              {member?.email ? (
+                <Text numberOfLines={1} className="mt-0.5 text-[13px] text-faint">
+                  {member.email}
+                </Text>
+              ) : null}
+            </View>
+            <StatusBadge status={member?.subscription_status} />
+          </View>
+          <TouchableOpacity onPress={pickAvatar} disabled={uploading} className="mt-3 self-start">
             {uploading ? (
               <ActivityIndicator color={BRAND_BLUE} />
             ) : (
               <Text className="text-[13px] font-semibold text-accent-link">Change photo</Text>
             )}
           </TouchableOpacity>
-          {member?.name ? (
-            <Text className="mt-2 text-[17px] font-bold text-body">{member.name}</Text>
-          ) : null}
-          {member?.email ? (
-            <Text className="mt-0.5 text-[13px] text-faint">{member.email}</Text>
-          ) : null}
-        </View>
+        </Card>
 
         {error ? <ErrorNotice message={error} /> : null}
 
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
+        <Text className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Appearance
         </Text>
         <ThemeSelector />
 
-        <View className="mb-2 mt-7 flex-row items-center justify-between">
-          <Text className="text-[12px] font-semibold uppercase tracking-wide text-faint">
-            Background
-          </Text>
-          <Text className="text-[11px] text-faint">Pick up to {MAX_BACKGROUNDS}</Text>
-        </View>
-        <View className="flex-row flex-wrap gap-2">
-          {BACKGROUND_OPTIONS.map((option) => {
-            const selected = selectedBackgrounds.includes(option);
-            const maxed = selectedBackgrounds.length >= MAX_BACKGROUNDS && !selected;
-            return (
-              <TouchableOpacity
-                key={option}
-                className={`rounded-full border px-3.5 py-2 ${
-                  selected
-                    ? 'border-brand-blue bg-brand-blue'
-                    : `border-hairline bg-surface ${maxed ? 'opacity-40' : ''}`
-                }`}
-                activeOpacity={0.8}
-                disabled={maxed || saving}
-                onPress={() => toggleBackground(option)}
-              >
-                <Text
-                  className={`text-[12px] font-medium ${
-                    selected ? 'text-brand-cream' : 'text-muted'
-                  }`}
-                >
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {FIELDS.map((field) => (
-          <View key={String(field.key)}>
-            <Text className="mb-1.5 mt-4 text-[13px] font-semibold text-muted">{field.label}</Text>
-            <TextInput
-              className={`rounded-xl border border-hairline bg-surface px-3.5 py-3 text-[15px] text-body ${
-                field.multiline ? 'h-24' : ''
-              }`}
-              value={form[field.key] ?? ''}
-              onChangeText={(text) => setForm((prev) => ({ ...prev, [field.key]: text }))}
-              placeholder={field.placeholder}
-              placeholderTextColor="#a1a1aa"
-              multiline={field.multiline}
-              textAlignVertical={field.multiline ? 'top' : 'center'}
-              maxLength={field.maxLength}
-              keyboardType={field.keyboardType ?? 'default'}
-              autoCapitalize={field.keyboardType === 'url' ? 'none' : 'sentences'}
-              autoCorrect={field.keyboardType !== 'url'}
-              editable={!saving}
-            />
+        {/* EDIT PROFILE */}
+        <Card title="Edit Profile">
+          <View className="mb-2 flex-row items-center justify-between">
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Background
+            </Text>
+            <Text className="text-[11px] text-faint">Pick up to {MAX_BACKGROUNDS}</Text>
           </View>
-        ))}
+          <View className="flex-row flex-wrap gap-2">
+            {BACKGROUND_OPTIONS.map((option) => {
+              const selected = selectedBackgrounds.includes(option);
+              const maxed = selectedBackgrounds.length >= MAX_BACKGROUNDS && !selected;
+              return (
+                <TouchableOpacity
+                  key={option}
+                  className={`rounded-full border px-3.5 py-2 ${
+                    selected
+                      ? 'border-brand-blue bg-brand-blue'
+                      : `border-hairline bg-surface-2 ${maxed ? 'opacity-40' : ''}`
+                  }`}
+                  activeOpacity={0.8}
+                  disabled={maxed || saving}
+                  onPress={() => toggleBackground(option)}
+                >
+                  <Text
+                    className={`text-[12px] font-medium ${
+                      selected ? 'text-brand-cream' : 'text-muted'
+                    }`}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
+          {FIELD_ROWS.map((row, i) => (
+            <View key={i} className="flex-row gap-3">
+              {row.map((field) => (
+                <FieldInput
+                  key={String(field.key)}
+                  field={field}
+                  value={form[field.key] ?? ''}
+                  onChangeText={(text) => setForm((prev) => ({ ...prev, [field.key]: text }))}
+                  disabled={saving}
+                />
+              ))}
+            </View>
+          ))}
+
+          <TouchableOpacity
+            className="mt-5 items-center rounded-full bg-brand-blue py-4"
+            activeOpacity={0.85}
+            onPress={save}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={BRAND_CREAM} />
+            ) : (
+              <Text className="text-base font-bold text-brand-cream">Save changes</Text>
+            )}
+          </TouchableOpacity>
+        </Card>
+
+        {/* MEMBERSHIP */}
+        <Card title="Membership">
+          <MembershipRow label="Status" value={member?.subscription_status || '—'} />
+          <MembershipRow label="Plan" value={member?.member_category || '—'} />
+          <MembershipRow
+            label="Member since"
+            value={member?.created_at ? formatMonthYear(member.created_at) : '—'}
+            last
+          />
+        </Card>
+
+        <Text className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Weekly match
         </Text>
         <Row
@@ -339,7 +395,7 @@ export default function ProfileScreen() {
           disabled={saving}
         />
 
-        <Text className="mb-2 mt-7 text-[12px] font-semibold uppercase tracking-wide text-faint">
+        <Text className="mb-2 mt-5 text-[12px] font-semibold uppercase tracking-wide text-faint">
           Job board emails
         </Text>
         <Row
@@ -353,19 +409,6 @@ export default function ProfileScreen() {
           onChange={(v) => toggleNotify('notify_needs', v)}
         />
 
-        <TouchableOpacity
-          className="mt-8 items-center rounded-full bg-brand-blue py-4"
-          activeOpacity={0.85}
-          onPress={save}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={BRAND_CREAM} />
-          ) : (
-            <Text className="text-base font-bold text-brand-cream">Save changes</Text>
-          )}
-        </TouchableOpacity>
-
         <TouchableOpacity className="mt-6 items-center py-2" onPress={confirmSignOut}>
           <Text className={`text-[15px] font-semibold ${c.isDark ? 'text-red-400' : 'text-red-600'}`}>
             Sign out
@@ -376,9 +419,91 @@ export default function ProfileScreen() {
   );
 }
 
-// Light / Dark / System, persisted to storage. Changing it calls NativeWind's
-// setColorScheme, which flips every semantic color token at once. 'system'
-// hands control back to the phone. Default is dark — see lib/theme.ts.
+// Shared card shell for Account / Edit Profile / Membership — a titled block
+// gets a header row, an untitled one (Account) just wraps its children.
+function Card({ title, children }: { title?: string; children: ReactNode }) {
+  return (
+    <View className="mt-5 rounded-2xl border border-hairline bg-surface p-4">
+      {title ? (
+        <Text className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-faint">
+          {title}
+        </Text>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
+// Green "Active" when the subscription is active; otherwise a neutral pill
+// with whatever text the backend sent, unmodified — other statuses aren't
+// documented, so nothing here should guess a friendlier label for them.
+function StatusBadge({ status }: { status?: string | null }) {
+  const c = useThemeColors();
+  const active = status === 'active';
+  const box = active ? (c.isDark ? 'bg-green-500/10' : 'bg-green-50') : 'bg-chip';
+  const text = active ? (c.isDark ? 'text-green-400' : 'text-green-700') : 'text-muted';
+  const dot = active ? '#22C55E' : c.faint;
+  return (
+    <View className={`flex-row items-center gap-1.5 rounded-full px-2.5 py-1 ${box}`}>
+      <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dot }} />
+      <Text className={`text-[11px] font-semibold ${text}`}>{active ? 'Active' : status || 'Unknown'}</Text>
+    </View>
+  );
+}
+
+function MembershipRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  const c = useThemeColors();
+  return (
+    <View
+      className="flex-row items-center justify-between py-2.5"
+      style={last ? undefined : { borderBottomWidth: 1, borderBottomColor: c.hairline }}
+    >
+      <Text className="text-[13px] text-faint">{label}</Text>
+      <Text className="text-[14px] font-semibold text-body">{value}</Text>
+    </View>
+  );
+}
+
+// One labelled text input, used both full-width and side-by-side (see
+// FIELD_ROWS) — `flex-1` makes a two-field row split evenly.
+function FieldInput({
+  field,
+  value,
+  onChangeText,
+  disabled,
+}: {
+  field: FieldDef;
+  value: string;
+  onChangeText: (text: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <View className="mt-4 flex-1">
+      <Text className="mb-1.5 text-[13px] font-semibold text-muted">{field.label}</Text>
+      <TextInput
+        className={`rounded-xl border border-hairline bg-surface-2 px-3.5 py-3 text-[15px] text-body ${
+          field.multiline ? 'h-24' : ''
+        }`}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={field.placeholder}
+        placeholderTextColor="#a1a1aa"
+        multiline={field.multiline}
+        textAlignVertical={field.multiline ? 'top' : 'center'}
+        maxLength={field.maxLength}
+        keyboardType={field.keyboardType ?? 'default'}
+        autoCapitalize={field.keyboardType === 'url' ? 'none' : 'sentences'}
+        autoCorrect={field.keyboardType !== 'url'}
+        editable={!disabled}
+      />
+    </View>
+  );
+}
+
+// Light / Dark / System, persisted to storage. Driven by our own ThemeProvider
+// (see lib/theme.tsx) — 'system' hands control back to the phone. Default is
+// dark. Not part of the website; kept as its own section per user request
+// (PROJECT.md §4.13).
 const THEME_OPTIONS: { key: ThemePref; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'light', label: 'Light', icon: 'sunny-outline' },
   { key: 'dark', label: 'Dark', icon: 'moon-outline' },
