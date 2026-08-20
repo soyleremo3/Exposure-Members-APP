@@ -292,6 +292,22 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 
 **Yeni durum (2026-07-24, kullanıcı kararı):** Banner ve arkasındaki tüm özel mantık tamamen kaldırıldı — koşullu gizleme değil, tam silme. `ApiError.readOnly`, `isReadOnlyError`, `READ_ONLY_NOTICE`, `InfoNotice` ve dört ekrandaki `readOnly` state/prop'ları silindi. Sonuç: bir test hesabı yazma denediğinde artık **hiçbir özel davranış yok** — 403 normal `readableError`/`ErrorNotice` yoluyla kırmızı hata şeridi olarak görünüyor, mesaj backend'in kendi metni ("Test accounts are read-only"). Diğer her API hatasıyla aynı yol.
 
+### 4.16 Membership gate + yerel match bildirimleri + push kaydı + EAS — **eklendi (2026-08-20), sibling repodan taşındı**
+
+Bir önceki oturumda bu iş yanlışlıkla kardeş klasörde (`Exposure-APP/`) yapılmıştı — ayrı, ilgisiz git geçmişi olan eski proje. Bu repo asıl/tek yayınlanacak uygulama olduğu için aynı özellikler buraya **birebir kopya değil, bu projenin mimarisine uyarlanarak** taşındı:
+
+- **`lib/membership.ts`** — `checkAccess()`: `GET /api/members/profile` çağırır, `subscription_status === 'active' && onboarding_complete === true` değilse `'denied'`. Ağ hatasında `'unknown'` döner ve **fail-open** — gerçek bir üyeyi tünelde kaldığı için kilitlememek `'ok'` ile aynı muamele görür.
+- **`App.tsx`** → `AppShell`: `session` state'inin yanına ikinci bir state (`access`) eklendi — dosyanın kendi "tek state her şeyi sürer" deseni korunarak. `session` var ama `access === 'denied'` ise `NoAccessScreen` gösteriliyor, `navigationRef`/`.reset()` yok (eski projenin Home/Portal ayrımı bu projede hiç yok).
+- **`screens/NoAccessScreen.tsx`** — sıfır ödeme/fiyat sinyali (§3 kuralı). "Use a different email" sadece `supabase.auth.signOut()` çağırıyor; `AppShell`'in mevcut `onAuthStateChange` dinleyicisi zaten `session`'ı null'a çekip ağacı Login'e döndürüyor.
+- **`lib/matchNotify.ts`** — haftalık 1:1 için **yerel** (push değil) bildirimler: eşleştin (anında, round başına bir kere), opt-in bekliyor (+24s), buluştun mu onayı (+24s). `GET /api/members/match` zaten var olan `getMatch()`/`MatchData` tipini kullanıyor, yeni tip eklenmedi. `Tabs()` mount olduğunda ve her foreground'da senkronize ediliyor.
+- **`lib/push.ts`** + `lib/api.ts` → `registerPushToken()` — cihaz Expo push token'ını `POST /api/members/push-token`'a kaydediyor (bkz. API.md). `app.json`'da `extra.eas.projectId` yokken sessizce çıkıyor; local bildirimler bundan etkilenmiyor.
+- **`app.json`** — `extra.eas.projectId: "882a7083-d48f-4c9d-9cb5-0d6c8763e2e5"`, `owner: "darkosxl"` eklendi. Bu, Exposure-APP'te `eas init` ile zaten bağlanmış proje — Exposure-APP App Store'a çıkmayacağı için buraya taşındı (§6 madde 2 çözüldü).
+- **`eas.json`** — yeni dosya, build profilleri (`development`/`preview`/`production`) + `appVersionSource: "remote"`.
+- **Yeni bağımlılıklar:** `expo-notifications`, `expo-constants`. `npx expo install` ilk denemede SDK 57 sürümlerini çekti (Exposure-APP'in commit geçmişindeki aynı tuzak, bkz. §4.1) — elle `~0.32.17` / `~18.0.14`'e (SDK 54 hattı) düzeltildi.
+- **API.md** — `POST /api/members/push-token` eklendi (istek şekli biliniyor, response şekli doğrulanmadı — client zaten okumuyor).
+
+**Doğrulama:** `tsc --noEmit` temiz. **Cihazda henüz görülmedi** — aktif üye hesabıyla girişte Tabs'a düz geçiş, (varsa) pasif/olmayan hesapla `NoAccessScreen`, bildirim izni istemi ve zamanlanmış hatırlatmalar kullanıcının kendi telefonunda onaylanmalı.
+
 ---
 
 ## 5. Ekran Durumu
@@ -318,12 +334,12 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 
 1. **Tasarım referansı yok — devam ediyor.** `https://exposureai.org/members/dashboard?section=directory` 375px'te denendi (2026-07-23): giriş olmadığı için `exposureai.org` login sayfasına yönlendiriyor. Üye alanı kapalı, kullanıcının şifresiyle giriş yapılmayacak. Job Board / Match / Discover ekranları `API.md`'deki veri şekline göre tasarlandı.
    **Çözüm yolu:** kullanıcı kendi tarayıcısından giriş yapıp 375px genişlikte ekran görüntüsü verir, ekranlar birebir eşleştirilir. (Siteye bakarken **her zaman mobil genişlikte** bak — masaüstü görünümü farklı davranıyor.)
-2. **`bundleIdentifier` çakışması.** `org.exposureai.members` eski `Exposure-APP` projesiyle aynı. App Store'a hangisi çıkacaksa diğerininki değişmeli.
+2. ~~**`bundleIdentifier` çakışması.**~~ **Çözüldü (2026-08-20).** `Exposure-APP` App Store'a çıkmayacak — tek proje bu repo. `org.exposureai.members` + Exposure-APP'te zaten `eas init` ile bağlanmış EAS `projectId` (`882a7083-d48f-4c9d-9cb5-0d6c8763e2e5`, owner `darkosxl`) bu repoya taşındı, çakışma artık yok.
 3. **`GET /api/members/events` gerçekten 401 mi dönüyor** abonelik pasifken? API.md öyle diyor, kodda ona göre önlem alındı ama gerçek bir pasif hesapla test edilmedi.
 4. **Avatar yükleme** (`POST /upload-avatar`) gerçek bir dosyayla test edilmedi. `multipart/form-data`, alan adı `file`, max 5 MB, JPG/PNG/WEBP.
 5. **`share_token`** alanı `JobPost` tipinde var ama hiçbir yerde kullanılmıyor. İlan paylaşma özelliği istenirse buradan devam edilir.
 6. **Test hesabı `member_category`'si — sonra kesin halledilecek (kullanıcı 2026-07-23).** `varrochannel@gmail.com` `test` kategorisinde, yazma yapamıyor (§4.11). Web ekibine iletilecek: kategori `founder`/`explorer`/`first_batch` veya boş yapılırsa yazma açılır (Match için ayrıca `subscription_status = active` + `onboarding_complete = true`). Denge: `test` kalkınca hesap gerçek üye olur (rehberde görünür, referral gerçek mail atar, match gerçek eşleştirir). Ayarlanınca Auto opt-in vb. gerçek cihazda test edilecek.
-7. **Planlanan push notification akışı — kapsam dışı, ayrı görev (not düşüldü 2026-07-24).** Kullanıcının planı: (a) Pazar günü saat 12:00'de tüm üyelere "opt-in ol" hatırlatma push'ı — `auto_opt_in`'e gerek kalmadan üyenin elle opt-in yapması için; (b) Pazartesi admin portalından eşleştirme bitince manuel tetiklenen "şu kişiyle eşleştiniz" push'ı. İkisi de bugünkü §4.15 temizliğinin kapsamı dışında — sadece kaybolmasın diye not, kod değişikliği yapılmadı.
+7. ~~**Planlanan push notification akışı — kapsam dışı, ayrı görev (not düşüldü 2026-07-24).**~~ **Yerel bildirim kısmı eklendi (2026-08-20), sunucu tarafı admin-tetikli push hâlâ ayrı görev.** Bkz. §4.16: haftalık maç hatırlatmaları artık cihazda yerel bildirim olarak planlanıyor (opt-in bekleniyor / eşleştin / buluştun mu onayı). Kullanıcının orijinal planındaki (a) Pazar 12:00 toplu "opt-in ol" push'ı ve (b) admin portalından manuel tetiklenen "eşleştin" push'ı — ikisi de backend/admin tarafı gerektiriyor, bu görevin kapsamında değil, hâlâ ayrı iş.
 
 **Cevaplananlar:** arayüz dili (→ İngilizce, §4.7) · commit dili (→ İngilizce, §4.8) · web'in 3 profil kolonunu farklı kullanması (→ §4.10) · test hesabı 403 davranışı (→ §4.11)
 
@@ -332,6 +348,14 @@ Backend (`proxy.ts:175-179`) `member_category === 'test'` olan hesapları GET-on
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-08-20 — Membership gate + yerel match bildirimleri + push kaydı + EAS, `Exposure-APP`'ten taşındı
+
+Kullanıcı önceki oturumun yanlış klasörde (`Exposure-APP/`, ilgisiz git geçmişli ayrı bir proje) yapıldığını fark etti — bu repo asıl/tek App Store adayı. İş buraya taşındı, ama birebir kopya değil: bu projenin mimarisine (session-driven tek state `AppShell`, native 5 sekme, `lib/theme.tsx`) uyarlandı. Detay: §4.16. Açık sorular §6 madde 2 (bundleIdentifier çakışması) ve madde 7'nin yerel-bildirim kısmı çözüldü; madde 7'nin backend/admin-tetikli push kısmı hâlâ ayrı görev.
+
+Kullanıcıdan iki karar alındı: (1) EAS projesini `Exposure-APP`'ten aynen taşı — o proje yayınlanmayacak; (2) `/api/members/push-token` backend endpoint'i gerçekten var, doğrulama beklemeden `lib/push.ts` taşındı.
+
+**Doğrulama:** `tsc --noEmit` temiz. **Cihazda henüz görülmedi** — kullanıcının Expo Go'da onayı bekleniyor (bkz. §4.16).
 
 ### 2026-07-24 — Profile'daki `auto_opt_in` + job-board bildirim kopyaları kaldırıldı
 

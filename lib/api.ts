@@ -273,6 +273,15 @@ export function postMatch(payload: {
   return apiSend('/api/members/match', 'POST', payload);
 }
 
+// --------------------------------------------------------------------- push
+
+// Registers this device's Expo push token so the server can send remote
+// notifications (weekly match reminders when the app hasn't been opened).
+// Response shape isn't asserted anywhere — apiSend just needs a 2xx.
+export function registerPushToken(token: string, platform: string): Promise<OkResponse> {
+  return apiSend('/api/members/push-token', 'POST', { token, platform });
+}
+
 // ------------------------------------------------------------------ content
 
 export function getLinks(): Promise<LinksResponse> {

@@ -39,6 +39,12 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "882a7083-d48f-4c9d-9cb5-0d6c8763e2e5"
+      }
+    },
+    "owner": "darkosxl"
   }
 }

@@ -300,6 +300,14 @@ state only, so a page reload shows the button again.
 site: on → `"On — You will join every round automatically."`, off →
 `"Off — you choose each week."` (the capital Y is the site's own typo).
 
+### POST `/api/members/push-token` — register a device for remote push
+
+Request: `{ "token": "<Expo push token>", "platform": "ios" | "android" }`.
+Called from `lib/push.ts` whenever the app has notification permission and
+an EAS project ID (see app.json). Response shape not yet confirmed — the
+client only checks for a 2xx and never reads the body (`lib/api.ts` →
+`registerPushToken`).
+
 ---
 
 ## Content
