@@ -1,4 +1,4 @@
-// Login: two steps, no passwords.
+// Members use email codes; review credentials are checked only by the server.
 //   Step 1 — member types their email → we POST it to the Exposure API,
 //            which emails them a login code (Supabase email OTP; the same
 //            code works on the website).
@@ -33,11 +33,54 @@ const MAX_CODE_LENGTH = 10;
 
 export default function LoginScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<PreAuthStackParamList>>();
-  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [step, setStep] = useState<'email' | 'code' | 'review'>('email');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  async function signInForReview() {
+    if (busy) return;
+    if (!username || !password) {
+      setError('Enter your username and password.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/members/auth/apple-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (!res.ok) {
+        setError(res.status === 401 ? 'Invalid username or password.' :
+          res.status === 429 ? 'Too many attempts. Please try again later.' :
+          'Review sign-in is unavailable. Please try again later.');
+        return;
+      }
+      const tokens = await res.json();
+      if (typeof tokens.access_token !== 'string' || typeof tokens.refresh_token !== 'string') {
+        throw new Error('Invalid session response');
+      }
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+      });
+      if (sessionError) {
+        setError('Could not start your session. Please try again.');
+        return;
+      }
+      setPassword('');
+      Keyboard.dismiss();
+    } catch {
+      setError('Could not complete sign-in. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendCode() {
     const trimmed = email.trim().toLowerCase();
@@ -147,6 +190,62 @@ export default function LoginScreen() {
               <Text className="text-center text-sm text-faint">
                 Not a member? <Text className="font-semibold text-accent-link">Apply to join</Text>
               </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-4 min-h-11 items-center justify-center"
+              onPress={() => { setStep('review'); setError(''); }}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              <Text className="text-sm text-accent-link">Review sign-in</Text>
+            </TouchableOpacity>
+          </>
+        ) : step === 'review' ? (
+          <>
+            <TextInput
+              className="rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-base text-body"
+              placeholder="Username"
+              accessibilityLabel="Review username"
+              placeholderTextColor="#a1a1aa"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              maxLength={120}
+              value={username}
+              onChangeText={setUsername}
+              editable={!busy}
+            />
+            <TextInput
+              className="mt-3 rounded-2xl border border-hairline bg-surface px-4 py-3.5 text-base text-body"
+              placeholder="Password"
+              accessibilityLabel="Review password"
+              placeholderTextColor="#a1a1aa"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="current-password"
+              maxLength={256}
+              value={password}
+              onChangeText={setPassword}
+              onSubmitEditing={signInForReview}
+              editable={!busy}
+            />
+            <TouchableOpacity
+              className="mt-3.5 items-center rounded-full bg-brand-blue py-4"
+              onPress={signInForReview}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              {busy ? <ActivityIndicator color={BRAND_CREAM} /> :
+                <Text className="text-base font-bold text-brand-cream">Sign in</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="mt-4 min-h-11 items-center justify-center"
+              onPress={() => { setStep('email'); setPassword(''); setError(''); }}
+              disabled={busy}
+              accessibilityRole="button"
+            >
+              <Text className="text-sm text-accent-link">Use email sign-in</Text>
             </TouchableOpacity>
           </>
         ) : (

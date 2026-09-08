@@ -359,3 +359,10 @@ Response: pass-through list of the last 8 queries.
 
 ### GET `/api/members/brain-query/[id]/stream` — live answer stream (SSE)
 `Content-Type: text/event-stream`. Emits Server-Sent Events whose payloads are the same answer shape as the GET above, sent incrementally. Note: React Native's `fetch` doesn't support SSE well — you'll need an SSE client library (e.g. `react-native-sse`) when you build this screen.
+# Review sign-in
+
+`POST /api/members/auth/apple-review` accepts `{ username, password }` over HTTPS
+without an Authorization header. Success returns `{ access_token, refresh_token }`
+for `supabase.auth.setSession`. Errors: 400 malformed input, 401 incorrect credentials,
+413 oversized input, 429 throttled (`Retry-After`), 503 disabled/unavailable.
+Credentials are entered by the reviewer; no review secrets are configured in this app.
