@@ -176,6 +176,11 @@ export type JobNotificationSettings = {
   notify_needs: boolean;
 };
 
+// Proposed endpoint, not yet built server-side — see API.md.
+export type NotifySettings = {
+  notify_pg_essays: boolean;
+};
+
 // ------------------------------------------------------------------ match
 
 export type MatchRound = {
@@ -306,6 +311,7 @@ export type JobBoardResponse = { posts: JobPost[] };
 export type JobPostResponse = { post: JobPost };
 export type JobApplicationsResponse = { applications: JobApplication[] };
 export type JobNotificationsResponse = { subscription: JobNotificationSettings };
+export type NotifySettingsResponse = { subscription: NotifySettings };
 export type AvatarUploadResponse = { url: string };
 export type LinksResponse = { groups: LinkGroup[] };
 export type NewsletterResponse = { posts: NewsletterPost[] };

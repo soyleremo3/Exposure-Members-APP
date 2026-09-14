@@ -340,6 +340,7 @@ Bir önceki oturumda bu iş yanlışlıkla kardeş klasörde (`Exposure-APP/`) y
 5. **`share_token`** alanı `JobPost` tipinde var ama hiçbir yerde kullanılmıyor. İlan paylaşma özelliği istenirse buradan devam edilir.
 6. **Test hesabı `member_category`'si — sonra kesin halledilecek (kullanıcı 2026-07-23).** `varrochannel@gmail.com` `test` kategorisinde, yazma yapamıyor (§4.11). Web ekibine iletilecek: kategori `founder`/`explorer`/`first_batch` veya boş yapılırsa yazma açılır (Match için ayrıca `subscription_status = active` + `onboarding_complete = true`). Denge: `test` kalkınca hesap gerçek üye olur (rehberde görünür, referral gerçek mail atar, match gerçek eşleştirir). Ayarlanınca Auto opt-in vb. gerçek cihazda test edilecek.
 7. ~~**Planlanan push notification akışı — kapsam dışı, ayrı görev (not düşüldü 2026-07-24).**~~ **Yerel bildirim kısmı eklendi (2026-08-20), sunucu tarafı admin-tetikli push hâlâ ayrı görev.** Bkz. §4.16: haftalık maç hatırlatmaları artık cihazda yerel bildirim olarak planlanıyor (opt-in bekleniyor / eşleştin / buluştun mu onayı). Kullanıcının orijinal planındaki (a) Pazar 12:00 toplu "opt-in ol" push'ı ve (b) admin portalından manuel tetiklenen "eşleştin" push'ı — ikisi de backend/admin tarafı gerektiriyor, bu görevin kapsamında değil, hâlâ ayrı iş.
+8. ~~**PG-essay bildirim opt-in — backend henüz yok.**~~ **Çözüldü (2026-09-14).** Backend `Exposure` web reposunda kuruldu: `GET`/`PUT /api/members/notifications` (tablo `pg_essay_subscriptions`) + günlük cron `app/api/cron/pg-essay-check` (`app/lib/pg-essays.ts` — `paulgraham.com/articles.html` diff'i, `pg_essay_state` singleton, değişince Expo push). Şema Aurora'ya SSH tünelinden (`docs/local-dev-db-access.md`, host `darkosxl`) elle uygulandı, `\d` ile doğrulandı. **Tek eksik: Dokploy'da yeni cron'un schedule'ı henüz eklenmedi** (README.md'de tam komut satırı hazır, `weekly-match-round`'un yanına eklenmesi gerekiyor — Dokploy UI, buradan yapılamıyor). Kullanıcı kararı: sadece PG (başka yazar eklenmedi — "onları tanımıyorum" 2026-09-14).
 
 **Cevaplananlar:** arayüz dili (→ İngilizce, §4.7) · commit dili (→ İngilizce, §4.8) · web'in 3 profil kolonunu farklı kullanması (→ §4.10) · test hesabı 403 davranışı (→ §4.11)
 
@@ -348,6 +349,36 @@ Bir önceki oturumda bu iş yanlışlıkla kardeş klasörde (`Exposure-APP/`) y
 ## 7. Oturum Günlüğü
 
 > En yeni kayıt en üstte. **Eskiler asla silinmez.**
+
+### 2026-09-14 — Profile'a PG-essay bildirim opt-in eklendi (client tarafı, backend ayrı iş)
+
+Kullanıcının isteği: Profile'ın en altına, "PG yeni essay atınca bildirim" opt-in bölümü. Kod yazmadan önce deep research istendi — dört soru cevaplandı:
+
+1. **Yeni build/preview gerekmiyor mu** → Evet, gerekmiyor. `expo-notifications` zaten native-link'li ve kullanımda (match hatırlatmaları), push token kaydı zaten `lib/push.ts` → `POST /api/members/push-token` üzerinden çalışıyor, EAS Update OTA kanalı zaten kurulu (bir önceki commit). Yeni toggle + API çağrısı salt JS — mevcut OTA kanalından gider, store'a hiç uğramaz. Sunucu tarafı (PG sitesini izleme + push atma) zaten app binary'sinin tamamen dışında.
+2. **PG sitesi nasıl izlenir** → Resmî feed yok (`rss.html` sadece Aaron Swartz'ın ölü feed'ine işaret ediyor). Önerilen: `articles.html`'i kendimiz çek, ilk `<a href>`'i (liste en yeniden eskiye sıralı) son görülenle kıyasla — 3. taraf bağımlılığı yok. Essay sıklığı ~ayda 1 → günlük poll fazlasıyla yeterli. `robots.txt` engellemiyor.
+3. **Sadece opt-in olanlara** → toggle varsayılan kapalı, `notify_pg_essays` member başına saklanacak (backend'de).
+4. **Başka ilginç kaynak eklenir mi** → araştırıldı (Derek Sivers, Astral Codex Ten, Morgan Housel, Venkatesh Rao — hepsinin gerçek RSS'i var, ekleme maliyeti düşük), kullanıcı reddetti: sadece PG.
+
+**Ne yapıldı (bu repoda, client tarafı):**
+
+1. `types.ts` — `NotifySettings` (`notify_pg_essays: boolean`) ve `NotifySettingsResponse` eklendi.
+2. `lib/api.ts` — `getNotifySettings()` / `updateNotifySettings()`, `GET`/`PUT /api/members/notifications`'a gidiyor — job-board'un `notify_jobs`/`notify_needs` deseniyle birebir aynı şekil.
+3. `screens/ProfileScreen.tsx` — `EssaysNotifyCard`: Sign out'un **altında**, en altta (kullanıcı böyle istedi). Kendi kendine save-on-toggle (optimistic + rollback + `readableError`/`ErrorNotice`) — §4.15'te büyük Save butonuna bağlı stale-state hatasından ders çıkarıldı, o desen tekrar edilmedi. Android bildirim kanalı eklenmedi (ponytail not: match'ten ayrı kanal gerekirse sonra eklenir).
+4. `API.md` — yeni endpoint çifti **"PROPOSED, not built yet"** olarak işaretlendi (rule §3: API şekli belirsizse tahmin etme — burada da tahmin edilmedi, açıkça "henüz yok" yazıldı, gerçek gibi sunulmadı). Backend job tarifi de oraya yazıldı.
+5. `PROJECT.md` §6 madde 8 (yeni açık soru: backend henüz yok) eklendi.
+
+**Sonra aynı oturumda: backend de kuruldu.** Kullanıcı "documents/web-apps/exposure['e] git ve fix'leri yap" dedi — `Exposure` web reposuna geçildi (CodeGraph indeksli, `job_board_subscriptions`/`job-board/notifications` deseni birebir kopyalandı):
+
+1. `supabase/schema/pg-essay-notifications.sql` — `pg_essay_subscriptions` (member_id, notify_pg_essays) + `pg_essay_state` (singleton, last_slug/last_title/checked_at/notified_at) tabloları. SSH tüneliyle (`docs/local-dev-db-access.md`, `~/.ssh/config`'teki `darkosxl` host'u — dokümandaki kısıtlı geliştirici akışından farklı, kullanıcının kendi admin erişimi zaten vardı) Aurora'ya elle uygulandı, `\d` ile doğrulandı.
+2. `app/lib/pg-essays.ts` — `fetchLatestPgEssay()` (articles.html'i regex ile parse eder — üstteki "try X" önerisi `<u>` sarmalı olduğu için `[^<]+` deseniyle otomatik elenir, canlı sitede doğrulandı) ve `checkAndNotifyPgEssays()` (state karşılaştır, değiştiyse `app/lib/push.ts`'teki mevcut `sendExpoPush()`'a fan-out). İlk çalıştırmada state boşsa bildirim atmıyor, sadece seed ediyor.
+3. `app/api/members/notifications/route.ts` — mobile'ın zaten beklediği `{ subscription: { notify_pg_essays } }` şekliyle GET/PUT.
+4. `app/api/cron/pg-essay-check/route.ts` — `weekly-match-round` ile aynı `CRON_SECRET` + `timingSafeEqual` deseni, GET+POST.
+5. `README.md` — yeni cron satırı + Dokploy komutu (`0 9 * * *` Europe/Istanbul) dokümante edildi.
+6. Bu repoda `API.md`'deki "PROPOSED" işareti "confirmed"e çevrildi.
+
+**Kapsam dışı kalan tek şey:** Dokploy'da yeni cron'un **schedule'ının eklenmesi** — UI adımı, buradan yapılamadı, README'de tam komut hazır.
+
+**Doğrulama:** İki repoda da `tsc --noEmit` temiz. Şema prod DB'de `\d` ile doğrulandı. Essay regex canlı `paulgraham.com/articles.html`'e karşı ayrı bir node script'iyle test edildi (`powerful.html` / "Making Startups Powerful" doğru çıktı verdi). **Cihazda henüz görülmedi**, cron da henüz Dokploy'a bağlanmadığı için gerçek bir push henüz gönderilmedi.
 
 ### 2026-08-20 — Membership gate + yerel match bildirimleri + push kaydı + EAS, `Exposure-APP`'ten taşındı
 

@@ -24,6 +24,8 @@ import type {
   LinksResponse,
   MatchData,
   NewsletterResponse,
+  NotifySettings,
+  NotifySettingsResponse,
   OkResponse,
   ProfilePatch,
   ProfileResponse,
@@ -280,6 +282,20 @@ export function postMatch(payload: {
 // Response shape isn't asserted anywhere — apiSend just needs a 2xx.
 export function registerPushToken(token: string, platform: string): Promise<OkResponse> {
   return apiSend('/api/members/push-token', 'POST', { token, platform });
+}
+
+// Opt-in PG-essay push notifications. Endpoint is PROPOSED, not confirmed to
+// exist yet — see API.md. Mirrors the job-board notifications shape below.
+export function getNotifySettings(): Promise<NotifySettingsResponse> {
+  return apiJson<NotifySettingsResponse>('/api/members/notifications');
+}
+
+export function updateNotifySettings(patch: Partial<NotifySettings>): Promise<NotifySettingsResponse> {
+  return apiJson<NotifySettingsResponse>('/api/members/notifications', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
 }
 
 // ------------------------------------------------------------------ content

@@ -308,6 +308,22 @@ an EAS project ID (see app.json). Response shape not yet confirmed — the
 client only checks for a 2xx and never reads the body (`lib/api.ts` →
 `registerPushToken`).
 
+### GET `/api/members/notifications` — PG-essay push opt-in — **confirmed (2026-09-14)**
+Response: `200 { "subscription": { "notify_pg_essays": boolean } }`. Mirrors
+job-board/notifications' shape exactly.
+
+### PUT `/api/members/notifications` — update it — **confirmed (2026-09-14)**
+Request: `{ "notify_pg_essays"?: boolean }`. Response: same shape as GET.
+
+Built in the `Exposure` web repo (`app/api/members/notifications/route.ts`,
+table `pg_essay_subscriptions`). A separate cron
+(`app/api/cron/pg-essay-check`, daily 09:00 Istanbul) diffs
+`paulgraham.com/articles.html` against `pg_essay_state` and pushes every
+opted-in member's token from `push-token` above via Expo's push API on
+change — see that repo's `app/lib/pg-essays.ts` and README.md. One manual
+step remains outside either repo: the Dokploy schedule for the new cron
+route hasn't been added yet (README documents the exact cron line).
+
 ---
 
 ## Content

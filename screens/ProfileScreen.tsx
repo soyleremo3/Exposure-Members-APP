@@ -23,6 +23,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -30,7 +31,14 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
-import { getProfile, readableError, updateProfile, uploadAvatar } from '../lib/api';
+import {
+  getNotifySettings,
+  getProfile,
+  readableError,
+  updateNotifySettings,
+  updateProfile,
+  uploadAvatar,
+} from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatMonthYear } from '../lib/format';
 import { BRAND_BLUE, BRAND_CREAM, useTheme, useThemeColors } from '../lib/theme';
@@ -352,8 +360,76 @@ export default function ProfileScreen() {
             Sign out
           </Text>
         </TouchableOpacity>
+
+        {/* Opt-in, sits at the very bottom by design — separate from the
+            three cards above, own save-on-toggle (no big Save button, see
+            PROJECT.md §4.15 for why that pattern was ripped out elsewhere). */}
+        <EssaysNotifyCard />
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+// PG-essay push opt-in. Hits a PROPOSED endpoint (API.md) that isn't built
+// server-side yet — a failed PUT surfaces as a visible error strip rather
+// than silently reverting, same fix as JobBoardScreen's NotifyCard (§4.15).
+// ponytail: no dedicated Android channel yet, add one if essay pushes need
+// to sit apart from match reminders in the OS notification settings.
+function EssaysNotifyCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getNotifySettings()
+      .then((d) => setEnabled(d.subscription.notify_pg_essays))
+      .catch(() => setEnabled(false));
+  }, []);
+
+  async function toggle() {
+    if (enabled === null) return;
+    const previous = enabled;
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    setError('');
+    try {
+      const d = await updateNotifySettings({ notify_pg_essays: next });
+      setEnabled(d.subscription.notify_pg_essays);
+    } catch (e) {
+      setEnabled(previous);
+      setError(readableError(e, 'Could not update notification settings.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (enabled === null) return null;
+
+  return (
+    <>
+      <Text className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wide text-faint">
+        Notifications
+      </Text>
+      {error ? <ErrorNotice message={error} /> : null}
+      <View className="rounded-2xl border border-hairline bg-surface p-4">
+        <View className="flex-row items-center justify-between gap-4">
+          <View className="flex-1">
+            <Text className="text-[14px] font-semibold text-body">New Paul Graham essays</Text>
+            <Text className="mt-1 text-[12px] text-faint">
+              Get a push notification when paulgraham.com posts a new essay. Opt-in — off unless you turn it on.
+            </Text>
+          </View>
+          <Switch
+            value={enabled}
+            onValueChange={toggle}
+            disabled={saving}
+            trackColor={{ false: '#E4E4E7', true: BRAND_BLUE }}
+            thumbColor={BRAND_CREAM}
+          />
+        </View>
+      </View>
+    </>
   );
 }
 
