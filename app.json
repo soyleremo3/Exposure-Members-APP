@@ -22,6 +22,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "org.exposureai.members",
       "buildNumber": "1",
+      "icon": "./assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
